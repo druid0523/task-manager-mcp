@@ -234,3 +234,45 @@ def test_version_conflict(task_model):
     task2.name = "Updated2"
     with pytest.raises(ValueError):
         task_model.update(task2, fields=['name'], use_version=True)
+
+
+def test_list_by_name_prefix(task_model):
+    """测试按名称前缀查询主任务"""
+    # 准备测试数据
+    tasks = [
+        Task(id=None, name="Project Alpha", number="1", root_id=0, parent_id=0),
+        Task(id=None, name="Project Beta", number="2", root_id=0, parent_id=0),
+        Task(id=None, name="Task Gamma", number="3", root_id=0, parent_id=0),
+        Task(id=None, name="project delta", number="4", root_id=0, parent_id=0),
+        Task(id=None, name="Special@Task", number="5", root_id=0, parent_id=0)
+    ]
+    for task in tasks:
+        task_model.insert(task)
+
+    # 测试空名称前缀 - 应返回所有主任务
+    results = task_model.list_by_name("")
+    assert len(results) == 5
+
+    # 测试精确匹配
+    results = task_model.list_by_name("Project Alpha")
+    assert len(results) == 1
+    assert results[0].name == "Project Alpha"
+
+    # 测试部分前缀匹配 (SQLite LIKE是大小写不敏感的)
+    results = task_model.list_by_name("Proj")
+    assert len(results) == 3
+    assert {t.name for t in results} == {"Project Alpha", "Project Beta", "project delta"}
+
+    # 测试大小写不敏感 (SQLite LIKE默认行为)
+    results = task_model.list_by_name("project")
+    assert len(results) == 3
+    assert {t.name for t in results} == {"Project Alpha", "Project Beta", "project delta"}
+
+    # 测试特殊字符
+    results = task_model.list_by_name("Special@")
+    assert len(results) == 1
+    assert results[0].name == "Special@Task"
+
+    # 测试无匹配情况
+    results = task_model.list_by_name("XYZ")
+    assert len(results) == 0
