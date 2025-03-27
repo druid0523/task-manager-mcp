@@ -121,6 +121,22 @@ def list_main_tasks(project_dir: str) -> Dict[str, any]:
 
 
 @mcp.tool()
+def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
+    """Find main tasks by name prefix.
+    
+    Args:
+        project_dir: Project directory path
+        name: The name prefix to search for
+        
+    Returns:
+        Dict with 'result' as list of matching main tasks
+    """
+    models = model_manager.get_models(project_dir)
+    tasks = models.task.list_by_name(name)
+    return {"result": tasks if tasks else None}
+
+
+@mcp.tool()
 def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
     """List all sub tasks under the current main task."""
     models = model_manager.get_models(project_dir)
@@ -137,7 +153,7 @@ def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
 
 @mcp.tool()
 def dequeue_sub_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
-    """Dequeue a sub task.
+    """Dequeue a sub task, and start it.
     
     Args:
         project_dir: Project directory path
@@ -149,7 +165,6 @@ def dequeue_sub_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
     models = model_manager.get_models(project_dir)
     task = models.task.dequeue(main_task_id)
     return {"result": task if task else None}
-
 
 @mcp.tool()
 def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId) -> Dict[str, any]:
