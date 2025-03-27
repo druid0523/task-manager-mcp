@@ -318,6 +318,38 @@ class TaskModel:
 
         return task
 
+    def list_by_name(self, name: str) -> List[Task]:
+        """List main tasks by name prefix.
+        
+        Args:
+            name: The name prefix to search for
+            
+        Returns:
+            List of matching main tasks
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT id, name, description, status, version,
+                   number, is_leaf, root_id, parent_id
+            FROM tasks
+            WHERE parent_id = 0 AND name LIKE ?
+            ORDER BY name
+        """, (f"{name}%",))
+        return [
+            Task(
+                id=row[0],
+                name=row[1],
+                description=row[2],
+                status=row[3],
+                version=row[4],
+                number=row[5],
+                is_leaf=row[6],
+                root_id=row[7],
+                parent_id=row[8]
+            )
+            for row in cursor.fetchall()
+        ]
+
     def dequeue(self, root_id: int) -> Optional[Task]:
         """Dequeue a leaf task.
         
