@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 from models.task import Task
-from server.tools import add_main_task, add_sub_task, add_sub_tasks, dequeue_sub_task, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask
+from server.tools import add_main_task, add_sub_task, add_sub_tasks, dequeue_sub_task, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask
 from models import model_manager
 
 @pytest.fixture
@@ -144,3 +144,41 @@ def test_dequeue_sub_task_no_available(project_dir):
     
     result = dequeue_sub_task(project_dir, main_id)
     assert result["result"] is None
+
+
+def test_find_main_tasks(project_dir):
+    """测试按名称前缀查询主任务"""
+    # 准备测试数据
+    add_main_task(project_dir, "Project Alpha", "Description 1")
+    add_main_task(project_dir, "Project Beta", "Description 2")
+    add_main_task(project_dir, "Task Gamma", "Description 3")
+    add_main_task(project_dir, "project delta", "Description 4")
+    add_main_task(project_dir, "Special@Task", "Description 5")
+
+    # 测试空名称前缀 - 应返回所有主任务
+    results = find_main_tasks(project_dir, "")
+    assert len(results["result"]) == 5
+
+    # 测试精确匹配
+    results = find_main_tasks(project_dir, "Project Alpha")
+    assert len(results["result"]) == 1
+    assert results["result"][0].name == "Project Alpha"
+
+    # 测试部分前缀匹配 (SQLite LIKE是大小写不敏感的)
+    results = find_main_tasks(project_dir, "Proj")
+    assert len(results["result"]) == 3
+    assert {t.name for t in results["result"]} == {"Project Alpha", "Project Beta", "project delta"}
+
+    # 测试大小写不敏感 (SQLite LIKE默认行为)
+    results = find_main_tasks(project_dir, "project")
+    assert len(results["result"]) == 3
+    assert {t.name for t in results["result"]} == {"Project Alpha", "Project Beta", "project delta"}
+
+    # 测试特殊字符
+    results = find_main_tasks(project_dir, "Special@")
+    assert len(results["result"]) == 1
+    assert results["result"][0].name == "Special@Task"
+
+    # 测试无匹配情况
+    results = find_main_tasks(project_dir, "XYZ")
+    assert results["result"] is None
