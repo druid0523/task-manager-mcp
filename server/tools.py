@@ -33,7 +33,7 @@ def add_main_task(project_dir: str, name: str, description: str) -> Dict[str, an
         parent_id=0
     )
     models.task.insert(main_task)
-    return {"result": main_task.id}
+    return {"task": main_task}
 
 def _parse_task_number(number: str) -> List[int]:
     """Parse task number into list of levels."""
@@ -97,7 +97,9 @@ def add_sub_task(project_dir: str, main_task_id: TaskId, sub_task_number: TaskNu
         return {"error": f"Main task id={main_task_id} not found"}
     
     _add_sub_tasks(models, main_task, [NumberedSubTask(number=sub_task_number, name=sub_task_name)])
-    return {"result": True}
+    # 获取最新创建的子任务并返回
+    sub_task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task_number))
+    return {"task": sub_task}
 
 
 @mcp.tool()
@@ -109,7 +111,13 @@ def add_sub_tasks(project_dir: str, main_task_id: TaskId, sub_tasks: List[Number
         return {"error": f"Main task id={main_task_id} not found"}
 
     _add_sub_tasks(models, main_task, sub_tasks)
-    return {"result": True}
+    # 获取所有新创建的子任务并返回
+    tasks = []
+    for sub_task in sub_tasks:
+        task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task.number))
+        if task:
+            tasks.append(task)
+    return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -117,7 +125,7 @@ def list_main_tasks(project_dir: str) -> Dict[str, any]:
     """List all main tasks."""
     models = model_manager.get_models(project_dir)
     tasks = models.task.list_by_parent_id(0)
-    return {"result": tasks if tasks else None}
+    return {"tasks": tasks if tasks else None}
 
 
 @mcp.tool()
@@ -133,7 +141,7 @@ def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
     """
     models = model_manager.get_models(project_dir)
     tasks = models.task.list_by_name(name)
-    return {"result": tasks if tasks else None}
+    return {"tasks": tasks if tasks else None}
 
 
 @mcp.tool()
@@ -145,7 +153,7 @@ def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
         return {"error": f"Main task id={main_task_id} not found"}
 
     tasks = models.task.list_by_root_id(main_task.id)
-    return {"result": [
+    return {"tasks": [
         task for task in tasks
         if task.parent_id != 0
     ] if tasks else None}
@@ -164,7 +172,7 @@ def dequeue_sub_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
     """
     models = model_manager.get_models(project_dir)
     task = models.task.dequeue(main_task_id)
-    return {"result": task if task else None}
+    return {"task": task if task else None}
 
 @mcp.tool()
 def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId) -> Dict[str, any]:
@@ -179,4 +187,6 @@ def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId)
         return {"error": "Sub task not found"}
     
     models.task.update_status(task.id, "finished")
-    return {"result": True}
+    # 返回更新后的任务对象
+    updated_task = models.task.get_by_id(task.id)
+    return {"task": updated_task}
