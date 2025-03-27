@@ -71,7 +71,7 @@ def _find_or_create_parent(models: Models, root: Task, levels: List[int]) -> Opt
 
 def _add_sub_tasks(models: Models, main_task: Task, sub_tasks: List[NumberedSubTask]) -> None:
     for sub_task in sub_tasks:
-        levels = _parse_task_number(sub_task.number)
+        levels = _parse_task_number(str(sub_task.number))
         if not levels:
             return {"error": f"Invalid task number: {sub_task.number}"}
         
