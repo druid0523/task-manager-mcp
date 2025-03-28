@@ -59,11 +59,6 @@ def _find_or_create_parent(models: Models, root: Task, levels: List[int]) -> Opt
             )
             models.task.insert(new_task)
             current = new_task
-            # if current.parent_id:
-            #     parent = models.task.get_by_id(current.parent_id)
-            #     if parent and parent.is_leaf:
-            #         parent.is_leaf = False
-            #         models.task.update(parent, fields=['is_leaf'])
         else:
             current = child
     
