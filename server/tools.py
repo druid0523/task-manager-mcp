@@ -200,3 +200,18 @@ def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId)
     # 返回更新后的任务对象
     updated_task = models.task.get_by_id(task.id)
     return {"task": updated_task}
+
+
+@mcp.tool()
+def delete_all_tasks(project_dir: str) -> Dict[str, any]:
+    """Delete all tasks.
+
+    Args:
+        project_dir: Project directory path
+
+    Returns:
+        Dict with 'result' as True
+    """
+    models = model_manager.get_models(project_dir)
+    models.task.delete_all()
+    return {"result": True}
