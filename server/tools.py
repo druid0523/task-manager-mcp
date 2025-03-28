@@ -23,7 +23,16 @@ def _get_main_task_by_id(models: Models, main_task_id: TaskId) -> Optional[Task]
 
 @mcp.tool()
 def add_main_task(project_dir: str, name: str, description: str) -> Dict[str, any]:
-    """Add a main task and return its ID."""
+    """Add a main task and return its ID.
+
+    Args:
+        project_dir: The project directory absolute path.
+        name: The name of the main task.
+        description: The description of the main task.
+    
+    Returns:
+        Dict with 'task' as the newly created main task.
+    """
     models = model_manager.get_models(project_dir)
     main_task = Task(
         id=None,
@@ -85,7 +94,17 @@ def _add_sub_tasks(models: Models, main_task: Task, sub_tasks: List[NumberedSubT
 
 @mcp.tool()
 def add_sub_task(project_dir: str, main_task_id: TaskId, sub_task_number: TaskNumber, sub_task_name: str) -> Dict[str, any]:
-    """Add a sub task under the special main task."""
+    """Add a sub task under the special main task.
+
+    Args:
+        project_dir: The project directory absolute path.
+        main_task_id: The ID of the main task.
+        sub_task_number: The number of the sub task.
+        sub_task_name: The name of the sub task.
+    
+    Returns:
+        Dict with 'task' as the newly created sub task.
+    """
     models = model_manager.get_models(project_dir)
     main_task = models.task.get_by_id(main_task_id)
     if not main_task:
@@ -99,7 +118,16 @@ def add_sub_task(project_dir: str, main_task_id: TaskId, sub_task_number: TaskNu
 
 @mcp.tool()
 def add_sub_tasks(project_dir: str, main_task_id: TaskId, sub_tasks: List[NumberedSubTask]) -> Dict[str, any]:
-    """Add multiple sub tasks under the special main task."""
+    """Add multiple sub tasks under the special main task.
+    
+    Args:
+        project_dir: The project directory absolute path.
+        main_task_id: The ID of the main task.
+        sub_tasks: The list of sub tasks to add.
+    
+    Returns:
+        Dict with 'tasks' as list of newly created sub tasks.
+    """
     models = model_manager.get_models(project_dir)
     main_task = models.task.get_by_id(main_task_id)
     if not main_task:
@@ -117,7 +145,14 @@ def add_sub_tasks(project_dir: str, main_task_id: TaskId, sub_tasks: List[Number
 
 @mcp.tool()
 def list_main_tasks(project_dir: str) -> Dict[str, any]:
-    """List all main tasks."""
+    """List all main tasks.
+
+    Args:
+        project_dir: The project directory absolute path.
+    Returns:
+
+        Dict with 'tasks' as list of main tasks
+    """
     models = model_manager.get_models(project_dir)
     tasks = models.task.list_by_parent_id(0)
     return {"tasks": tasks if tasks else None}
@@ -128,7 +163,7 @@ def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
     """Find main tasks by name prefix.
     
     Args:
-        project_dir: Project directory path
+        project_dir: Project directory absolute path
         name: The name prefix to search for
         
     Returns:
@@ -141,7 +176,14 @@ def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
 
 @mcp.tool()
 def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
-    """List all sub tasks under the current main task."""
+    """List all sub tasks under the current main task.
+    Args:
+        project_dir: Project directory absolute path
+        main_task_id: The ID of the main task
+        
+    Returns:
+        Dict with 'result' as list of matching sub tasks
+    """
     models = model_manager.get_models(project_dir)
     main_task = _get_main_task_by_id(models, main_task_id)
     if not main_task:
@@ -159,7 +201,7 @@ def start_or_resume_main_task(project_dir: str, main_task_id: TaskId) -> Dict[st
     """Start or resume the specified main task.
 
     Args:
-        project_dir: Project directory path
+        project_dir: The project directory absolute path.
         main_task_id: ID of the main task
 
     Returns:
@@ -175,7 +217,7 @@ def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId)
     """Mark the specified sub task under the current main task as finished.
 
     Args:
-        project_dir: Project directory path
+        project_dir: The project directory absolute path.
         main_task_id: ID of the main task
         sub_task_id: ID of the sub task
 
@@ -202,7 +244,7 @@ def delete_all_tasks(project_dir: str) -> Dict[str, any]:
     """Delete all tasks.
 
     Args:
-        project_dir: Project directory path
+        project_dir: The project directory absolute path.
 
     Returns:
         Dict with 'result' as True
