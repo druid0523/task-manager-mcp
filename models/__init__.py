@@ -11,7 +11,7 @@ class Models:
     def __init__(self, db_path: str):
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._conn = sqlite3.connect(str(self.db_path))
 
         self._metadata = MetadataModel(self._conn)
         self._metadata.init_db()
@@ -34,7 +34,7 @@ class ModelManager:
     _lock = threading.Lock()
 
     def __init__(self):
-        self._models_dict: Dict[str, Models] = {}
+        self._local_data = threading.local()
 
     @classmethod
     def get_instance(cls):
@@ -52,9 +52,11 @@ class ModelManager:
         return Models(cls.get_db_path(project_dir))
 
     def get_models(self, project_dir: str) -> Models:
-        if project_dir not in self._models_dict:
-            self._models_dict[project_dir] = self.new_models(project_dir)
-        return self._models_dict[project_dir]
+        if not hasattr(self._local_data, 'models_dict'):
+            self._local_data.models_dict = {}
+        if project_dir not in self._local_data.models_dict:
+            self._local_data.models_dict[project_dir] = self.new_models(project_dir)
+        return self._local_data.models_dict[project_dir]
 
 
 model_manager = ModelManager.get_instance()

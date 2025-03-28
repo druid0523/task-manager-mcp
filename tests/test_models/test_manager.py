@@ -23,7 +23,7 @@ def test_singleton_pattern():
 
 def test_get_db_path(project_dir):
     db_path = ModelManager.get_db_path(project_dir)
-    assert str(db_path).endswith(".aitasks/taskdb.sqlite")
+    assert str(db_path).endswith(".taskmgr/taskmgr.sqlite")
     assert str(db_path).startswith(project_dir)
 
 def test_new_models(project_dir):
