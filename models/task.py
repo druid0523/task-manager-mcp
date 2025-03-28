@@ -350,16 +350,26 @@ class TaskModel:
             for row in cursor.fetchall()
         ]
 
-    def dequeue(self, root_id: int) -> Optional[Task]:
-        """Dequeue a leaf task.
+    def start_or_resume(self, root_id: int) -> Optional[Task]:
+        """Start or resume a task with the given root ID.
         
         Args:
-            root_id: The root task ID
+            root_id: The root ID of the task to start or resume
             
         Returns:
-            The dequeued task if found, None otherwise
+            The started or resumed sub task, or None if no task was found
         """
         with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                SELECT id FROM tasks
+                WHERE root_id = ? AND is_leaf = 1 AND status = 'started'
+                LIMIT 1
+            """, (root_id,))
+            row = cursor.fetchone()
+            if row:
+                return self.get_by_id(row[0])
+            
             cursor = self.conn.cursor()
             cursor.execute("""
                 SELECT id FROM tasks
@@ -372,4 +382,3 @@ class TaskModel:
 
             updated_task = self.update_status(row[0], "started")
             return updated_task
-        return None

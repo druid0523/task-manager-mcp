@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 from models.task import Task
-from server.tools import add_main_task, add_sub_task, add_sub_tasks, dequeue_sub_task, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask
+from server.tools import add_main_task, add_sub_task, add_sub_tasks, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask, start_or_resume_main_task
 from models import model_manager
 
 @pytest.fixture
@@ -104,51 +104,6 @@ def test_task_number_parsing(project_dir):
     list_result = list_sub_tasks(project_dir, main_id)["tasks"]
     assert len(list_result) == 4
 
-
-def test_dequeue_sub_task(project_dir):
-    # 测试任务出队接口
-    main_result = add_main_task(project_dir, "Main Task", "")
-    main_id = main_result["task"].id
-    
-    # 添加可出队任务
-    add_sub_task(project_dir, main_id, "1", "Task 1")
-    add_sub_task(project_dir, main_id, "2", "Task 2")
-
-    # 第一次出队
-    result = dequeue_sub_task(project_dir, main_id)
-    assert result["task"] is not None
-    
-    # 验证任务状态更新
-    list_result = list_sub_tasks(project_dir, main_id)["tasks"]
-    dequeued_task = next(t for t in list_result if t.id == result["task"].id)
-    assert dequeued_task.status == "started"
-    
-    # 第二次出队
-    result = dequeue_sub_task(project_dir, main_id)
-    assert result["task"] is not None
-    assert result["task"].id != dequeued_task.id
-    
-    # 无可用任务
-    result = dequeue_sub_task(project_dir, main_id)
-    assert result["task"] is None
-
-def test_dequeue_sub_task_no_available(project_dir):
-    models = model_manager.get_models(project_dir)
-
-    # 测试无可用任务出队
-    main_result = add_main_task(project_dir, "Main Task", "")
-    main_id = main_result["task"].id
-    
-    # 添加非叶子任务
-    models.task.insert(Task(name="Task 1", description="", status="created", version=1, number="1", is_leaf=False, root_id=main_id, parent_id=main_id))
-    
-    # 添加已完成任务
-    models.task.insert(Task(name="Task 2", description="", status="finished", version=1, number="2", is_leaf=True, root_id=main_id, parent_id=main_id))
-    
-    result = dequeue_sub_task(project_dir, main_id)
-    assert result["task"] is None
-
-
 def test_find_main_tasks(project_dir):
     """测试按名称前缀查询主任务"""
     # 准备测试数据
@@ -185,3 +140,46 @@ def test_find_main_tasks(project_dir):
     # 测试无匹配情况
     results = find_main_tasks(project_dir, "XYZ")
     assert results["tasks"] is None
+
+def test_start_or_resume_main_task_success(project_dir):
+    """测试正常启动或恢复主任务"""
+    # 创建主任务
+    main_result = add_main_task(project_dir, "Main Task", "")
+    main_id = main_result["task"].id
+    
+    # 创建未开始的子任务
+    add_sub_task(project_dir, main_id, "1", "Sub Task 1")
+    
+    # 调用 start_or_resume_main_task
+    result = start_or_resume_main_task(project_dir, main_id)
+    assert "task" in result
+    assert result["task"] is not None
+    assert result["task"].status == "started"
+
+def test_start_or_resume_main_task_not_found(project_dir):
+    """测试主任务不存在的情况"""
+    # 调用 start_or_resume_main_task，传入不存在的任务 ID
+    result = start_or_resume_main_task(project_dir, 999)
+    assert "task" in result
+    assert result["task"] is None
+
+def test_start_or_resume_main_task_no_available_subtask(project_dir):
+    """测试没有可用的子任务的情况"""
+    models = model_manager.get_models(project_dir)
+
+    # 创建主任务
+    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0, status="finished")
+    models.task.insert(root)
+
+    # 创建已完成的子任务
+    created_task = Task(
+        id=None, name="Finished Task", number="1.1", 
+        root_id=root.id, parent_id=root.id, 
+        status="finished", is_leaf=True
+    )
+    models.task.insert(created_task)
+
+    # 调用 start_or_resume_main_task
+    result = start_or_resume_main_task(project_dir, root.id)
+    assert "task" in result
+    assert result["task"] is None

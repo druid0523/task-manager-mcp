@@ -160,23 +160,33 @@ def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
 
 
 @mcp.tool()
-def dequeue_sub_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
-    """Dequeue a sub task, and start it.
-    
+def start_or_resume_main_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
+    """Start or resume the specified main task.
+
     Args:
         project_dir: Project directory path
         main_task_id: ID of the main task
-        
+
     Returns:
-        Dict with 'result' as dequeued task or None if no available task
+        Dict with 'result' as the started or resumed sub task, or None if no task was found
     """
     models = model_manager.get_models(project_dir)
-    task = models.task.dequeue(main_task_id)
+    task = models.task.start_or_resume(main_task_id)
     return {"task": task if task else None}
+
 
 @mcp.tool()
 def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId) -> Dict[str, any]:
-    """Mark the specified sub task under the current main task as finished."""
+    """Mark the specified sub task under the current main task as finished.
+
+    Args:
+        project_dir: Project directory path
+        main_task_id: ID of the main task
+        sub_task_id: ID of the sub task
+
+    Returns:
+        Dict with 'result' as updated task
+    """
     models = model_manager.get_models(project_dir)
     main_task = models.task.get_by_id(main_task_id)
     if not main_task:
