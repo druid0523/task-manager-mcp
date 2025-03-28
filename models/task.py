@@ -387,3 +387,4 @@ class TaskModel:
         """Delete all tasks from the database."""
         with self.conn:
             self.conn.execute("DELETE FROM tasks")
+            self.conn.execute("DELETE FROM sqlite_sequence WHERE name='tasks'")
