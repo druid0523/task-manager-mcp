@@ -382,3 +382,8 @@ class TaskModel:
 
             updated_task = self.update_status(row[0], "started")
             return updated_task
+
+    def delete_all(self):
+        """Delete all tasks from the database."""
+        with self.conn:
+            self.conn.execute("DELETE FROM tasks")
