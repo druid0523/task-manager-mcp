@@ -103,48 +103,6 @@ def test_list_leaves_empty(task_model):
     leaves = task_model.list_leaves(root.id)
     assert len(leaves) == 1
 
-def test_dequeue(task_model):
-    # 测试任务出队
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
-    task_model.insert(root)
-    
-    task1 = Task(id=None, name="Task1", number="1.1", root_id=root.id, parent_id=root.id, is_leaf=True)
-    task2 = Task(id=None, name="Task2", number="1.2", root_id=root.id, parent_id=root.id, is_leaf=True)
-    task_model.insert(task1)
-    task_model.insert(task2)
-    
-    # 出队第一个任务
-    dequeue_task = task_model.dequeue(root.id)
-    assert dequeue_task is not None
-    assert dequeue_task.id == task1.id
-    assert dequeue_task.status == "started"
-    
-    # 出队第二个任务
-    dequeue_task = task_model.dequeue(root.id)
-    assert dequeue_task is not None
-    assert dequeue_task.id == task2.id
-    assert dequeue_task.status == "started"
-    
-    # 无可用任务
-    dequeue_task = task_model.dequeue(root.id)
-    assert dequeue_task is None
-
-def test_dequeue_no_available(task_model):
-    # 测试无可用任务出队
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
-    task_model.insert(root)
-    
-    # 创建非叶子任务
-    task1 = Task(id=None, name="Task1", number="1.1", root_id=root.id, parent_id=root.id, is_leaf=False)
-    task_model.insert(task1)
-    
-    # 创建已完成任务
-    task2 = Task(id=None, name="Task2", number="1.2", root_id=root.id, parent_id=root.id, is_leaf=True, status="finished")
-    task_model.insert(task2)
-    
-    dequeue_task = task_model.dequeue(root.id)
-    assert dequeue_task is None
-
 def test_check_parent_status(task_model):
     # 测试父任务状态自动更新
     root = Task(id=None, name="Root", number="", root_id=0, parent_id=0)
@@ -195,7 +153,6 @@ def test_check_parent_status_multilevel(task_model):
     root = task_model.get_by_id(root.id)
     assert root.status == "started"
 
-
 def test_version_control(task_model):
     # 测试版本控制
     task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0)
@@ -234,7 +191,6 @@ def test_version_conflict(task_model):
     task2.name = "Updated2"
     with pytest.raises(ValueError):
         task_model.update(task2, fields=['name'], use_version=True)
-
 
 def test_list_by_name_prefix(task_model):
     """测试按名称前缀查询主任务"""
@@ -276,3 +232,61 @@ def test_list_by_name_prefix(task_model):
     # 测试无匹配情况
     results = task_model.list_by_name("XYZ")
     assert len(results) == 0
+
+def test_start_or_resume_with_started_subtask(task_model):
+    """测试存在已开始的子任务时返回该子任务"""
+    # 创建主任务
+    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
+    task_model.insert(root)
+    
+    # 创建已开始的子任务
+    started_task = Task(
+        id=None, name="Started Task", number="1.1", 
+        root_id=root.id, parent_id=root.id, 
+        status="started", is_leaf=True
+    )
+    task_model.insert(started_task)
+    
+    # 调用 start_or_resume
+    result = task_model.start_or_resume(root.id)
+    assert result is not None
+    assert result.id == started_task.id
+    assert result.status == "started"
+
+def test_start_or_resume_with_created_subtask(task_model):
+    """测试存在未开始的子任务时开始并返回该子任务"""
+    # 创建主任务
+    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
+    task_model.insert(root)
+    
+    # 创建未开始的子任务
+    created_task = Task(
+        id=None, name="Created Task", number="1.1", 
+        root_id=root.id, parent_id=root.id, 
+        status="created", is_leaf=True
+    )
+    task_model.insert(created_task)
+    
+    # 调用 start_or_resume
+    result = task_model.start_or_resume(root.id)
+    assert result is not None
+    assert result.id == created_task.id
+    assert result.status == "started"
+
+def test_start_or_resume_no_available_subtask(task_model):
+    """测试没有可用的子任务时返回 None"""
+    # 创建主任务
+    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0, status="finished")
+    task_model.insert(root)
+
+    # 创建已完成的子任务
+    created_task = Task(
+        id=None, name="Finished Task", number="1.1", 
+        root_id=root.id, parent_id=root.id, 
+        status="finished", is_leaf=True
+    )
+    task_model.insert(created_task)
+
+    # 调用 start_or_resume
+    result = task_model.start_or_resume(root.id)
+    assert result is None
