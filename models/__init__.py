@@ -45,7 +45,7 @@ class ModelManager:
 
     @classmethod
     def get_db_path(cls, project_dir: str) -> Path:
-        return Path(project_dir) / ".aitasks" / "taskdb.sqlite"
+        return Path(project_dir) / ".taskmgr" / "taskmgr.sqlite"
 
     @classmethod
     def new_models(cls, project_dir: str) -> Models:
