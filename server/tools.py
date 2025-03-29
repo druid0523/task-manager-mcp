@@ -155,7 +155,7 @@ def list_main_tasks(project_dir: str) -> Dict[str, any]:
     """
     models = model_manager.get_models(project_dir)
     tasks = models.task.list_by_parent_id(0)
-    return {"tasks": tasks if tasks else None}
+    return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -170,8 +170,8 @@ def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
         Dict with 'result' as list of matching main tasks
     """
     models = model_manager.get_models(project_dir)
-    tasks = models.task.list_by_name(name)
-    return {"tasks": tasks if tasks else None}
+    tasks = models.task.list_root_by_name(name)
+    return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -237,6 +237,26 @@ def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId)
     # 返回更新后的任务对象
     updated_task = models.task.get_by_id(task.id)
     return {"task": updated_task}
+
+
+@mcp.tool()
+def delete_task(project_dir: str, task_id: int) -> Dict[str, any]:
+    """Delete a specific task by its ID.
+
+    Args:
+        project_dir: The project directory absolute path.
+        task_id: The ID of the task to delete.
+    
+    Returns:
+        Dict with 'result' as True if successful, or error message if task not found.
+    """
+    models = model_manager.get_models(project_dir)
+    task = models.task.get_by_id(task_id)
+    if not task:
+        return {"error": f"Task id={task_id} not found"}
+    
+    models.task.delete_by_id(task_id)
+    return {"result": True}
 
 
 @mcp.tool()

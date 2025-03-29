@@ -22,6 +22,7 @@ class Task:
     created_time: datetime = dataclasses.field(default_factory=datetime.now)
     started_time: Optional[datetime] = None
     finished_time: Optional[datetime] = None
+    deleted: bool = False
 
 
 
@@ -37,7 +38,8 @@ class TaskModel:
         'root_id': 'root_id',
         'parent_id': 'parent_id',
         'started_time': 'started_time',
-        'finished_time': 'finished_time'
+        'finished_time': 'finished_time',
+        'deleted': 'deleted'
     }
 
     def __init__(self, conn: sqlite3.Connection):
@@ -58,14 +60,18 @@ class TaskModel:
                     root_id INTEGER NOT NULL DEFAULT 0,
                     created_time DATETIME NOT NULL,
                     started_time DATETIME,
-                    finished_time DATETIME
+                    finished_time DATETIME,
+                    deleted BOOLEAN DEFAULT FALSE
                 )
             """)
             self.conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id)
+                CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id, deleted)
             """)
             self.conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_tasks_root_id_number ON tasks(root_id, number)
+                CREATE INDEX IF NOT EXISTS idx_tasks_root_id_number ON tasks(root_id, number, deleted)
+            """)
+            self.conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)
             """)
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
@@ -75,7 +81,7 @@ class TaskModel:
                    number, is_leaf, root_id, parent_id,
                    created_time, started_time, finished_time
             FROM tasks
-            WHERE id = ?
+            WHERE id = ? AND deleted = FALSE
         """, (task_id,))
         row = cursor.fetchone()
         if row:
@@ -101,7 +107,7 @@ class TaskModel:
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
             FROM tasks
-            WHERE root_id = ? AND number = ?
+            WHERE root_id = ? AND number = ? AND deleted = FALSE
         """, (root_id, number))
         row = cursor.fetchone()
         if row:
@@ -124,7 +130,7 @@ class TaskModel:
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
             FROM tasks
-            WHERE parent_id = ?
+            WHERE parent_id = ? AND deleted = FALSE
             ORDER BY number
         """, (parent_id,))
         return [
@@ -148,7 +154,7 @@ class TaskModel:
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
             FROM tasks
-            WHERE root_id = ?
+            WHERE root_id = ? AND deleted = FALSE
             ORDER BY number
         """, (root_id,))
         return [
@@ -172,7 +178,7 @@ class TaskModel:
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
             FROM tasks
-            WHERE root_id = ? and is_leaf = 1
+            WHERE root_id = ? AND is_leaf = 1 AND deleted = FALSE
             ORDER BY number
         """, (root_id,))
         return [
@@ -318,21 +324,21 @@ class TaskModel:
 
         return task
 
-    def list_by_name(self, name: str) -> List[Task]:
-        """List main tasks by name prefix.
+    def list_root_by_name(self, name: str) -> List[Task]:
+        """List root tasks by name prefix.
         
         Args:
             name: The name prefix to search for
             
         Returns:
-            List of matching main tasks
+            List of matching root tasks
         """
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
             FROM tasks
-            WHERE parent_id = 0 AND name LIKE ?
+            WHERE parent_id = 0 AND name LIKE ? AND deleted = FALSE
             ORDER BY name
         """, (f"{name}%",))
         return [
@@ -363,7 +369,7 @@ class TaskModel:
             cursor = self.conn.cursor()
             cursor.execute("""
                 SELECT id FROM tasks
-                WHERE root_id = ? AND is_leaf = 1 AND status = 'started'
+                WHERE root_id = ? AND is_leaf = 1 AND status = 'started' AND deleted = FALSE
                 LIMIT 1
             """, (root_id,))
             row = cursor.fetchone()
@@ -383,8 +389,18 @@ class TaskModel:
             updated_task = self.update_status(row[0], "started")
             return updated_task
 
-    def delete_all(self):
-        """Delete all tasks from the database."""
+    def delete_by_id(self, task_id: int):
+        """Mark a task as deleted by its ID."""
         with self.conn:
-            self.conn.execute("DELETE FROM tasks")
-            self.conn.execute("DELETE FROM sqlite_sequence WHERE name='tasks'")
+            self.conn.execute("""
+                UPDATE tasks SET deleted = TRUE WHERE id = ?
+            """, (task_id,))
+            # Cascade delete to child tasks
+            self.conn.execute("""
+                UPDATE tasks SET deleted = TRUE WHERE parent_id = ?
+            """, (task_id,))
+
+    def delete_all(self):
+        """Mark all tasks as deleted."""
+        with self.conn:
+            self.conn.execute("UPDATE tasks SET deleted = TRUE")
