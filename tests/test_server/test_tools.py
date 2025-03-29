@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 from models.task import Task
-from server.tools import add_main_task, add_sub_task, add_sub_tasks, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask, start_or_resume_main_task
+from server.tools import add_main_task, add_sub_task, add_sub_tasks, delete_task, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask, start_or_resume_main_task
 from models import model_manager
 
 @pytest.fixture
@@ -139,7 +139,7 @@ def test_find_main_tasks(project_dir):
 
     # 测试无匹配情况
     results = find_main_tasks(project_dir, "XYZ")
-    assert results["tasks"] is None
+    assert len(results["tasks"]) == 0
 
 def test_start_or_resume_main_task_success(project_dir):
     """测试正常启动或恢复主任务"""
@@ -183,3 +183,48 @@ def test_start_or_resume_main_task_no_available_subtask(project_dir):
     result = start_or_resume_main_task(project_dir, root.id)
     assert "task" in result
     assert result["task"] is None
+
+def test_delete_task_success(project_dir):
+    """测试正常删除任务"""
+    # 创建主任务
+    main_result = add_main_task(project_dir, "Main Task", "")
+    main_id = main_result["task"].id
+    
+    # 创建子任务
+    sub_result = add_sub_task(project_dir, main_id, "1", "Sub Task 1")
+    sub_id = sub_result["task"].id
+    
+    # 删除子任务
+    result = delete_task(project_dir, sub_id)
+    assert "result" in result
+    assert result["result"] is True
+    
+    # 验证任务已被删除
+    list_result = list_sub_tasks(project_dir, main_id)
+    assert len(list_result["tasks"]) == 0
+
+def test_delete_task_not_found(project_dir):
+    """测试删除不存在的任务"""
+    # 尝试删除不存在的任务
+    result = delete_task(project_dir, 999)
+    assert "error" in result
+    assert result["error"] == "Task id=999 not found"
+
+def test_delete_main_task_with_subtasks(project_dir):
+    """测试删除主任务及其子任务"""
+    # 创建主任务
+    main_result = add_main_task(project_dir, "Main Task", "")
+    main_id = main_result["task"].id
+    
+    # 创建子任务
+    add_sub_task(project_dir, main_id, "1", "Sub Task 1")
+    add_sub_task(project_dir, main_id, "2", "Sub Task 2")
+    
+    # 删除主任务
+    result = delete_task(project_dir, main_id)
+    assert "result" in result
+    assert result["result"] is True
+    
+    # 验证主任务和子任务都被删除
+    list_result = list_main_tasks(project_dir)
+    assert len(list_result["tasks"]) == 0
