@@ -144,6 +144,24 @@ def add_sub_tasks(project_dir: str, main_task_id: TaskId, sub_tasks: List[Number
 
 
 @mcp.tool()
+def get_main_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
+    """Get a main task by its ID.
+
+    Args:
+        project_dir: The project directory absolute path.
+        main_task_id: The ID of the main task.
+
+    Returns:
+        Dict with 'task' as the main task if found, or error message if not found.
+    """
+    models = model_manager.get_models(project_dir)
+    task = _get_main_task_by_id(models, main_task_id)
+    if not task:
+        return {"error": f"Main task id={main_task_id} not found"}
+    return {"task": task}
+
+
+@mcp.tool()
 def list_main_tasks(project_dir: str) -> Dict[str, any]:
     """List all main tasks.
 

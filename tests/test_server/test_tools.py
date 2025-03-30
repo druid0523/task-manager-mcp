@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 from models.task import Task
-from server.tools import add_main_task, add_sub_task, add_sub_tasks, delete_task, find_main_tasks, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask, start_or_resume_main_task
+from server.tools import add_main_task, add_sub_task, add_sub_tasks, delete_task, find_main_tasks, get_main_task, list_main_tasks, list_sub_tasks, finish_sub_task, NumberedSubTask, start_or_resume_main_task
 from models import model_manager
 
 @pytest.fixture
@@ -228,3 +228,38 @@ def test_delete_main_task_with_subtasks(project_dir):
     # 验证主任务和子任务都被删除
     list_result = list_main_tasks(project_dir)
     assert len(list_result["tasks"]) == 0
+
+def test_get_main_task_success(project_dir):
+    """测试成功获取主任务"""
+    # 创建主任务
+    main_result = add_main_task(project_dir, "Main Task", "")
+    main_id = main_result["task"].id
+    
+    # 获取主任务
+    result = get_main_task(project_dir, main_id)
+    assert "task" in result
+    assert result["task"].id == main_id
+    assert result["task"].name == "Main Task"
+
+def test_get_main_task_not_found(project_dir):
+    """测试获取不存在的任务"""
+    # 尝试获取不存在的任务
+    result = get_main_task(project_dir, 999)
+    assert "error" in result
+    assert result["error"] == "Main task id=999 not found"
+
+def test_get_main_task_not_main_task(project_dir):
+    """测试获取非主任务"""
+    # 创建主任务
+    main_result = add_main_task(project_dir, "Main Task", "")
+    main_id = main_result["task"].id
+    
+    # 创建子任务
+    sub_result = add_sub_task(project_dir, main_id, "1", "Sub Task 1")
+    sub_id = sub_result["task"].id
+    
+    # 尝试获取子任务
+    result = get_main_task(project_dir, sub_id)
+    assert "error" in result
+    assert result["error"] == "Main task id={} not found".format(sub_id)
+
