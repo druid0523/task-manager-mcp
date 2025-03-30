@@ -151,7 +151,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 If you encounter any issues or have any suggestions, please contact us through:
 - Submit an issue on GitHub
-- Send email to support@taskmanager.com
 
 ## About
 

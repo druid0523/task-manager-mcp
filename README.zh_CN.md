@@ -152,7 +152,6 @@ Add the server to your MCP settings
 
 如果您遇到任何问题或有任何建议，请通过以下方式联系我们：
 - 在 GitHub 上提交 issue
-- 发送邮件至 support@taskmanager.com
 
 ## 关于
 
