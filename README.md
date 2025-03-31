@@ -41,33 +41,6 @@ Key Features:
    uv run mcp run main.py
    ```
 
-## Project Structure
-
-```
-task-manager-mcp/
-├── models/               # Data models
-│   ├── __init__.py
-│   ├── metadata.py       # Metadata schema
-│   └── task.py           # Task domain model
-├── server/               # Server implementation
-│   ├── __init__.py
-│   ├── mcp.py            # MCP protocol adapter
-│   └── tools.py          # MCP toolchain
-├── tests/                # Test suites
-│   ├── test_models/      # Model unit tests
-│   └── test_server/      # Server integration tests
-├── .gitignore
-├── LICENSE.md
-├── main.py               # Service entrypoint
-├── pyproject.toml        # Project metadata
-└── uv.lock               # Dependency lockfile
-```
-
-## Configuration
-
-### Dependency Management
-The `uv.lock` file ensures deterministic dependency resolution. This file is automatically managed by uv - do not edit manually.
-
 ## Usage Guide
 
 ### MCP Service Integration
@@ -106,6 +79,34 @@ The project provides `.roomodes` configuration with modes:
 Merge the `.roomodes` configuration into your project to enable these modes.
 
 ## Development
+
+### Project Structure
+
+```
+task-manager-mcp/
+├── models/               # Data models
+│   ├── __init__.py
+│   ├── metadata.py       # Metadata schema
+│   └── task.py           # Task domain model
+├── server/               # Server implementation
+│   ├── __init__.py
+│   ├── mcp.py            # MCP protocol adapter
+│   └── tools.py          # MCP toolchain
+├── tests/                # Test suites
+│   ├── test_models/      # Model unit tests
+│   └── test_server/      # Server integration tests
+├── .gitignore
+├── LICENSE.md
+├── main.py               # Service entrypoint
+├── pyproject.toml        # Project metadata
+└── uv.lock               # Dependency lockfile
+```
+
+### Dependency Management
+
+The `uv.lock` file ensures deterministic dependency resolution. This file is automatically managed by uv - do not edit manually.
+
+### Testing
 
 Run test suite:
 ```bash
