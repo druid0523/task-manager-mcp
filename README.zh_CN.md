@@ -2,42 +2,41 @@
 
 ## 项目简介
 
-Task Manager MCP 是一个基于 Model Context Protocol (MCP) 的任务管理服务器。它提供了创建、管理和跟踪任务的完整解决方案，适用于各种需要任务管理的应用场景。
+Task Manager MCP 是基于 Model Context Protocol (MCP) 的分布式任务管理服务端，提供完整的任务生命周期管理能力，适用于复杂任务编排场景。
 
-主要功能包括：
-- 创建和管理主任务
-- 添加和跟踪子任务
-- 任务状态管理
-- 任务优先级设置\[待开发\]
-- 任务进度跟踪\[待开发\]
+核心特性：
+- 主任务/子任务层级化建模
+- 任务状态机与全链路追踪
+- 优先级调度机制（TODO）
+- 实时进度监控（TODO）
 
-## README.md
+## 多语言文档
 - en [English](README.md)
 - zh_CN [简体中文](README.zh_CN.md)
 
-## 快速开始
+## 快速入门
 
-### 安装要求
-- Python 3.10 或更高版本
+### 环境要求
+- Python 3.10+
 
-### 使用 uv 工具安装
-1. 安装 uv 工具：
+### 通过 uv 安装
+1. 安装 uv 包管理器：
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. 克隆项目：
+2. 克隆仓库：
    ```bash
    git clone https://github.com/your-repo/task-manager-mcp.git
    cd task-manager-mcp
    ```
 
-3. 安装依赖：
+3. 同步依赖：
    ```bash
    uv sync
    ```
 
-4. 运行项目：
+4. 启动服务：
    ```bash
    uv run mcp run main.py
    ```
@@ -46,34 +45,34 @@ Task Manager MCP 是一个基于 Model Context Protocol (MCP) 的任务管理服
 
 ```
 task-manager-mcp/
-├── models/               # 数据模型
+├── models/               # 数据模型层
 │   ├── __init__.py
-│   ├── metadata.py       # 元数据管理
-│   └── task.py           # 任务模型
-├── server/               # 服务器实现
+│   ├── metadata.py       # 元数据模型
+│   └── task.py           # 任务领域模型
+├── server/               # 服务端实现
 │   ├── __init__.py
-│   ├── mcp.py            # MCP 服务器
-│   └── tools.py          # 工具实现
-├── tests/                # 测试代码
-│   ├── test_models/      # 模型测试
-│   └── test_server/      # 服务器测试
+│   ├── mcp.py            # MCP 协议适配层
+│   └── tools.py          # MCP 工具集
+├── tests/                # 测试套件
+│   ├── test_models/      # 模型单元测试
+│   └── test_server/      # 服务集成测试
 ├── .gitignore
 ├── LICENSE.md
-├── main.py               # 入口文件
-├── pyproject.toml        # 项目配置
-└── uv.lock               # 依赖锁定文件
+├── main.py               # 服务入口点
+├── pyproject.toml        # 项目元数据
+└── uv.lock               # 依赖版本锁
 ```
 
-## 配置说明
+## 配置管理
 
-### 使用 uv.lock 管理依赖
-uv.lock 文件用于锁定项目依赖，确保在不同环境下安装的一致性。不要手动编辑此文件。
+### 依赖版本控制
+项目使用 `uv.lock` 文件进行确定性依赖安装，该文件由 uv 工具自动维护，请勿手动修改。
 
 ## 使用指南
 
-## MCP Integration
+### MCP 服务集成
 
-Add the server to your MCP settings
+在 MCP 配置文件中注册服务：
 
 ```json
 {
@@ -82,7 +81,7 @@ Add the server to your MCP settings
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/libingxi/Documents/Projects/task-manager-mcp",
+        "/path/to/task-manager-mcp",
         "run",
         "--with",
         "mcp",
@@ -97,62 +96,41 @@ Add the server to your MCP settings
 }
 ```
 
+### Roo Code 扩展
 
-### 添加主任务
-使用 `add_main_task` 工具添加主任务：
-```json
-{
-  "project_dir": "/path/to/project",
-  "name": "项目开发",
-  "description": "完成项目开发任务"
-}
-```
+项目提供 `.roomodes` 扩展定义文件，包含以下模式：
 
-### 添加子任务
-使用 `add_sub_task` 工具为主任务添加子任务：
-```json
-{
-  "project_dir": "/path/to/project",
-  "main_task_id": 1,
-  "sub_task_number": 1,
-  "sub_task_name": "需求分析"
-}
-```
+1. **TaskDecomposer**：复杂任务拆解与依赖分析
+2. **TaskPlanner**：任务调度与执行跟踪
 
-### 获取任务列表
-使用 `list_main_tasks` 工具获取所有主任务：
-```json
-{
-  "project_dir": "/path/to/project"
-}
-```
+将本项目的 `.roomodes` 内容合并至您的项目配置中即可启用。
 
 ## 开发指南
 
-运行测试：
-   ```bash
-   uv test
-   ```
+执行测试套件：
+```bash
+uv test
+```
 
-## 贡献指南
+## 贡献指引
 
-我们欢迎任何形式的贡献！请遵循以下步骤：
+欢迎通过 GitHub 协作流程参与贡献：
 
-1. Fork 项目仓库
-2. 创建特性分支 (`git checkout -b feat/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送分支 (`git push origin feat/AmazingFeature`)
+1. Fork 主仓库
+2. 创建特性分支 (`git checkout -b feat/NewFeature`)
+3. 提交原子化修改 (`git commit -m 'feat: Implement NewFeature'`)
+4. 推送至远程仓库 (`git push origin feat/NewFeature`)
 5. 创建 Pull Request
 
-## 许可证
+## 开源协议
 
-本项目采用 MIT 许可证 - 详情请参阅 [LICENSE.md](LICENSE.md) 文件。
+本项目基于 [Apache 2.0 协议](LICENSE.md) 开源。
 
-## 支持
+## 技术支持
 
-如果您遇到任何问题或有任何建议，请通过以下方式联系我们：
-- 在 GitHub 上提交 issue
+发现问题或建议改进？请通过以下渠道反馈：
+- 提交 GitHub Issue
 
-## 关于
+## 项目维护
 
-Task Manager MCP 由 druid0523 创建并维护。
+Task Manager MCP 由 [@druid0523](https://github.com/druid0523) 开发和维护。
