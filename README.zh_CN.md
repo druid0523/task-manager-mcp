@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-Task Manager MCP 是基于 Model Context Protocol (MCP) 的分布式任务管理服务端，提供完整的任务生命周期管理能力，适用于复杂任务编排场景。
+Task Manager MCP 是一个任务管理MCP(Model Context Protocol)服务，提供完整的任务生命周期管理能力，适用于复杂任务编排场景。
 
 核心特性：
 - 主任务/子任务层级化建模
