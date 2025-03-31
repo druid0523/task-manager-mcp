@@ -41,33 +41,6 @@ Task Manager MCP 是基于 Model Context Protocol (MCP) 的分布式任务管理
    uv run mcp run main.py
    ```
 
-## 项目结构
-
-```
-task-manager-mcp/
-├── models/               # 数据模型层
-│   ├── __init__.py
-│   ├── metadata.py       # 元数据模型
-│   └── task.py           # 任务领域模型
-├── server/               # 服务端实现
-│   ├── __init__.py
-│   ├── mcp.py            # MCP 协议适配层
-│   └── tools.py          # MCP 工具集
-├── tests/                # 测试套件
-│   ├── test_models/      # 模型单元测试
-│   └── test_server/      # 服务集成测试
-├── .gitignore
-├── LICENSE.md
-├── main.py               # 服务入口点
-├── pyproject.toml        # 项目元数据
-└── uv.lock               # 依赖版本锁
-```
-
-## 配置管理
-
-### 依赖版本控制
-项目使用 `uv.lock` 文件进行确定性依赖安装，该文件由 uv 工具自动维护，请勿手动修改。
-
 ## 使用指南
 
 ### MCP 服务集成
@@ -107,7 +80,34 @@ task-manager-mcp/
 
 ## 开发指南
 
-执行测试套件：
+### 项目结构
+
+```
+task-manager-mcp/
+├── models/               # 数据模型层
+│   ├── __init__.py
+│   ├── metadata.py       # 元数据模型
+│   └── task.py           # 任务领域模型
+├── server/               # 服务端实现
+│   ├── __init__.py
+│   ├── mcp.py            # MCP 协议适配层
+│   └── tools.py          # MCP 工具集
+├── tests/                # 测试套件
+│   ├── test_models/      # 模型单元测试
+│   └── test_server/      # 服务集成测试
+├── .gitignore
+├── LICENSE.md
+├── main.py               # 服务入口点
+├── pyproject.toml        # 项目元数据
+└── uv.lock               # 依赖版本锁
+```
+
+### 依赖版本控制
+
+项目使用 `uv.lock` 文件进行确定性依赖安装，该文件由 uv 工具自动维护，请勿手动修改。
+
+### 测试
+
 ```bash
 uv test
 ```
