@@ -109,7 +109,7 @@ task-manager-mcp/
 ### 测试
 
 ```bash
-uv test
+pytest tests/ -v
 ```
 
 ## 贡献指引
