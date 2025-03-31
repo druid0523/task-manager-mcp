@@ -108,9 +108,8 @@ The `uv.lock` file ensures deterministic dependency resolution. This file is aut
 
 ### Testing
 
-Run test suite:
 ```bash
-uv test
+pytest tests/ -v
 ```
 
 ## Contributing
