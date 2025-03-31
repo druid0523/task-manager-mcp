@@ -2,7 +2,7 @@
 
 ## Overview
 
-Task Manager MCP is a distributed task management server built on Model Context Protocol (MCP), offering full lifecycle management capabilities for complex task orchestration scenarios.
+Task Manager MCP is a task management service based on the MCP (Model Context Protocol), offering full lifecycle management capabilities for complex task orchestration scenarios.
 
 Key Features:
 - Hierarchical task/subtask modeling
