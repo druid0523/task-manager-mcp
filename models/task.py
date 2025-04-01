@@ -390,15 +390,24 @@ class TaskModel:
             return updated_task
 
     def delete_by_id(self, task_id: int):
-        """Mark a task as deleted by its ID."""
+        """Mark a task and all its descendants as deleted by its ID."""
         with self.conn:
-            self.conn.execute("""
-                UPDATE tasks SET deleted = TRUE WHERE id = ?
-            """, (task_id,))
-            # Cascade delete to child tasks
-            self.conn.execute("""
-                UPDATE tasks SET deleted = TRUE WHERE parent_id = ?
-            """, (task_id,))
+            # Process children level by level
+            current_level = [task_id]
+            while current_level:
+                # Mark all current level as deleted
+                self.conn.execute("""
+                    UPDATE tasks SET deleted = TRUE
+                    WHERE id IN ({})
+                """.format(','.join('?' * len(current_level))), current_level)
+
+                # Get next level children
+                cursor = self.conn.cursor()
+                cursor.execute("""
+                    SELECT id FROM tasks
+                    WHERE parent_id IN ({}) AND deleted = FALSE
+                """.format(','.join('?' * len(current_level))), current_level)
+                current_level = [row[0] for row in cursor.fetchall()]
 
     def delete_all(self):
         """Mark all tasks as deleted."""
