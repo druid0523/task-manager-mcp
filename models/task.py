@@ -43,39 +43,47 @@ class TaskModel:
     }
 
     def __init__(self, conn: sqlite3.Connection):
-        self.conn = conn
+        self._conn = conn
+
+    def check_db(self) -> bool:
+        """检查tasks表是否存在"""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='tasks'
+        """)
+        return cursor.fetchone() is not None
 
     def init_db(self):
-        with self.conn:
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(256) NOT NULL,
-                    description TEXT DEFAULT '',
-                    status VARCHAR(64) DEFAULT 'created',
-                    version INTEGER DEFAULT 1,
-                    number VARCHAR(256) NOT NULL,
-                    is_leaf BOOLEAN DEFAULT FALSE,
-                    parent_id INTEGER NOT NULL DEFAULT 0,
-                    root_id INTEGER NOT NULL DEFAULT 0,
-                    created_time DATETIME NOT NULL,
-                    started_time DATETIME,
-                    finished_time DATETIME,
-                    deleted BOOLEAN DEFAULT FALSE
-                )
-            """)
-            self.conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id, deleted)
-            """)
-            self.conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_tasks_root_id_number ON tasks(root_id, number, deleted)
-            """)
-            self.conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)
-            """)
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(256) NOT NULL,
+                description TEXT DEFAULT '',
+                status VARCHAR(64) DEFAULT 'created',
+                version INTEGER DEFAULT 1,
+                number VARCHAR(256) NOT NULL,
+                is_leaf BOOLEAN DEFAULT FALSE,
+                parent_id INTEGER NOT NULL DEFAULT 0,
+                root_id INTEGER NOT NULL DEFAULT 0,
+                created_time DATETIME NOT NULL,
+                started_time DATETIME,
+                finished_time DATETIME,
+                deleted BOOLEAN DEFAULT FALSE
+            )
+        """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id, deleted)
+        """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_root_id_number ON tasks(root_id, number, deleted)
+        """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)
+        """)
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -102,7 +110,7 @@ class TaskModel:
         return None
 
     def get_by_root_id_and_number(self, root_id: int, number: str) -> Optional[Task]:
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
@@ -125,7 +133,7 @@ class TaskModel:
         return None
 
     def list_by_parent_id(self, parent_id: int) -> List[Task]:
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
@@ -149,7 +157,7 @@ class TaskModel:
         ]
 
     def list_by_root_id(self, root_id: int) -> List[Task]:
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
@@ -173,7 +181,7 @@ class TaskModel:
         ]
 
     def list_leaves(self, root_id: int) -> List[Task]:
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
@@ -197,70 +205,68 @@ class TaskModel:
         ]
 
     def insert(self, task: Task):
-        with self.conn:
-            is_root = task.parent_id == 0
-            # Insert new task
-            cursor = self.conn.execute("""
-                INSERT INTO tasks (
-                    name, description, status, version,
-                    number, is_leaf, root_id, parent_id,
-                    created_time, started_time, finished_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                task.name, task.description, task.status, task.version,
-                task.number, task.is_leaf, task.root_id, task.parent_id,
-                task.created_time, task.started_time, task.finished_time
-            ))
-            task.id = cursor.lastrowid
-            if is_root:
-                # Update root task
-                self.conn.execute("""
-                    UPDATE tasks SET
-                        root_id = ?
-                    WHERE id = ?
-                """, (task.id, task.id))
-                task.root_id = task.id
-            else:
-                # update parent is_leaf = 0
-                self.update(Task(id=task.parent_id, is_leaf=False), fields=['is_leaf'])
+        is_root = task.parent_id == 0
+        # Insert new task
+        cursor = self._conn.execute("""
+            INSERT INTO tasks (
+                name, description, status, version,
+                number, is_leaf, root_id, parent_id,
+                created_time, started_time, finished_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            task.name, task.description, task.status, task.version,
+            task.number, task.is_leaf, task.root_id, task.parent_id,
+            task.created_time, task.started_time, task.finished_time
+        ))
+        task.id = cursor.lastrowid
+        if is_root:
+            # Update root task
+            self._conn.execute("""
+                UPDATE tasks SET
+                    root_id = ?
+                WHERE id = ?
+            """, (task.id, task.id))
+            task.root_id = task.id
+        else:
+            # update parent is_leaf = 0
+            self.update(Task(id=task.parent_id, is_leaf=False), fields=['is_leaf'])
 
     def update(self, task: Task, fields: List[str] = None, use_version: bool = False):
-        with self.conn:
-            last_total_changes = self.conn.total_changes
-            current_version = task.version if use_version else None
-            update_fields = fields or self.field_map.keys()
-            set_clause = []
-            params = []
+        last_total_changes = self._conn.total_changes
+        current_version = task.version if use_version else None
+        update_fields = fields or self.field_map.keys()
+        set_clause = []
+        params = []
 
-            # 动态构建更新字段（始终过滤version字段）
-            for field in update_fields:
-                if field in self.field_map and field != 'version':
-                    set_clause.append(f"{field} = ?")
-                    params.append(getattr(task, self.field_map[field]))
+        # 动态构建更新字段（始终过滤version字段）
+        for field in update_fields:
+            if field in self.field_map and field != 'version':
+                set_clause.append(f"{field} = ?")
+                params.append(getattr(task, self.field_map[field]))
 
-            # 处理版本号更新
-            if use_version:
-                set_clause.append("version = version + 1")  # SQL原子递增
-                where_condition = "id = ? AND version = ?"
-                params.extend([task.id, current_version])
-            else:
-                where_condition = "id = ?"
-                params.append(task.id)
+        # 处理版本号更新
+        if use_version:
+            set_clause.append("version = version + 1")  # SQL原子递增
+            where_condition = "id = ? AND version = ?"
+            params.extend([task.id, current_version])
+        else:
+            where_condition = "id = ?"
+            params.append(task.id)
 
-            query = f"""
-                UPDATE tasks 
-                SET {', '.join(set_clause)}
-                WHERE {where_condition}
-            """
+        query = f"""
+            UPDATE tasks 
+            SET {', '.join(set_clause)}
+            WHERE {where_condition}
+        """
 
-            self.conn.execute(query, tuple(params))
+        self._conn.execute(query, tuple(params))
 
-            if self.conn.total_changes == last_total_changes:
-                raise ValueError("Task update failed (ID not found or version mismatch)")
-            
-            # 仅在更新成功后同步版本号
-            if use_version:
-                task.version += 1  # 严格与数据库保持同步
+        if self._conn.total_changes == last_total_changes:
+            raise ValueError("Task update failed (ID not found or version mismatch)")
+        
+        # 仅在更新成功后同步版本号
+        if use_version:
+            task.version += 1  # 严格与数据库保持同步
 
     class InvalidStatusTransition(Exception):
         """Invalid task status transition"""
@@ -333,7 +339,7 @@ class TaskModel:
         Returns:
             List of matching root tasks
         """
-        cursor = self.conn.cursor()
+        cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id
@@ -365,51 +371,48 @@ class TaskModel:
         Returns:
             The started or resumed sub task, or None if no task was found
         """
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                SELECT id FROM tasks
-                WHERE root_id = ? AND is_leaf = 1 AND status = 'started' AND deleted = FALSE
-                LIMIT 1
-            """, (root_id,))
-            row = cursor.fetchone()
-            if row:
-                return self.get_by_id(row[0])
-            
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                SELECT id FROM tasks
-                WHERE root_id = ? AND is_leaf = 1 AND status = 'created'
-                LIMIT 1
-            """, (root_id,))
-            row = cursor.fetchone()
-            if not row:
-                return None
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT id FROM tasks
+            WHERE root_id = ? AND is_leaf = 1 AND status = 'started' AND deleted = FALSE
+            LIMIT 1
+        """, (root_id,))
+        row = cursor.fetchone()
+        if row:
+            return self.get_by_id(row[0])
+        
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT id FROM tasks
+            WHERE root_id = ? AND is_leaf = 1 AND status = 'created'
+            LIMIT 1
+        """, (root_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
 
-            updated_task = self.update_status(row[0], "started")
-            return updated_task
+        updated_task = self.update_status(row[0], "started")
+        return updated_task
 
     def delete_by_id(self, task_id: int):
         """Mark a task and all its descendants as deleted by its ID."""
-        with self.conn:
-            # Process children level by level
-            current_level = [task_id]
-            while current_level:
-                # Mark all current level as deleted
-                self.conn.execute("""
-                    UPDATE tasks SET deleted = TRUE
-                    WHERE id IN ({})
-                """.format(','.join('?' * len(current_level))), current_level)
+        # Process children level by level
+        current_level = [task_id]
+        while current_level:
+            # Mark all current level as deleted
+            self._conn.execute("""
+                UPDATE tasks SET deleted = TRUE
+                WHERE id IN ({})
+            """.format(','.join('?' * len(current_level))), current_level)
 
-                # Get next level children
-                cursor = self.conn.cursor()
-                cursor.execute("""
-                    SELECT id FROM tasks
-                    WHERE parent_id IN ({}) AND deleted = FALSE
-                """.format(','.join('?' * len(current_level))), current_level)
-                current_level = [row[0] for row in cursor.fetchall()]
+            # Get next level children
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                SELECT id FROM tasks
+                WHERE parent_id IN ({}) AND deleted = FALSE
+            """.format(','.join('?' * len(current_level))), current_level)
+            current_level = [row[0] for row in cursor.fetchall()]
 
     def delete_all(self):
         """Mark all tasks as deleted."""
-        with self.conn:
-            self.conn.execute("UPDATE tasks SET deleted = TRUE")
+        self._conn.execute("UPDATE tasks SET deleted = TRUE")

@@ -165,19 +165,18 @@ def test_start_or_resume_main_task_not_found(project_dir):
 
 def test_start_or_resume_main_task_no_available_subtask(project_dir):
     """测试没有可用的子任务的情况"""
-    models = model_manager.get_models(project_dir)
+    with model_manager.open_models(project_dir) as models:
+        # 创建主任务
+        root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0, status="finished")
+        models.task.insert(root)
 
-    # 创建主任务
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0, status="finished")
-    models.task.insert(root)
-
-    # 创建已完成的子任务
-    created_task = Task(
-        id=None, name="Finished Task", number="1.1", 
-        root_id=root.id, parent_id=root.id, 
-        status="finished", is_leaf=True
-    )
-    models.task.insert(created_task)
+        # 创建已完成的子任务
+        created_task = Task(
+            id=None, name="Finished Task", number="1.1", 
+            root_id=root.id, parent_id=root.id, 
+            status="finished", is_leaf=True
+        )
+        models.task.insert(created_task)
 
     # 调用 start_or_resume_main_task
     result = start_or_resume_main_task(project_dir, root.id)
