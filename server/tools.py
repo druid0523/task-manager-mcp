@@ -33,16 +33,16 @@ def add_main_task(project_dir: str, name: str, description: str) -> Dict[str, an
     Returns:
         Dict with 'task' as the newly created main task.
     """
-    models = model_manager.get_models(project_dir)
-    main_task = Task(
-        id=None,
-        name=name,
-        description=description,
-        root_id=0,
-        parent_id=0
-    )
-    models.task.insert(main_task)
-    return {"task": main_task}
+    with model_manager.open_models(project_dir) as models:
+        main_task = Task(
+            id=None,
+            name=name,
+            description=description,
+            root_id=0,
+            parent_id=0
+        )
+        models.task.insert(main_task)
+        return {"task": main_task}
 
 def _parse_task_number(number: str) -> List[int]:
     """Parse task number into list of levels."""
@@ -105,15 +105,15 @@ def add_sub_task(project_dir: str, main_task_id: TaskId, sub_task_number: TaskNu
     Returns:
         Dict with 'task' as the newly created sub task.
     """
-    models = model_manager.get_models(project_dir)
-    main_task = models.task.get_by_id(main_task_id)
-    if not main_task:
-        return {"error": f"Main task id={main_task_id} not found"}
-    
-    _add_sub_tasks(models, main_task, [NumberedSubTask(number=sub_task_number, name=sub_task_name)])
-    # 获取最新创建的子任务并返回
-    sub_task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task_number))
-    return {"task": sub_task}
+    with model_manager.open_models(project_dir) as models:
+        main_task = models.task.get_by_id(main_task_id)
+        if not main_task:
+            return {"error": f"Main task id={main_task_id} not found"}
+        
+        _add_sub_tasks(models, main_task, [NumberedSubTask(number=sub_task_number, name=sub_task_name)])
+        # 获取最新创建的子任务并返回
+        sub_task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task_number))
+        return {"task": sub_task}
 
 
 @mcp.tool()
@@ -128,19 +128,19 @@ def add_sub_tasks(project_dir: str, main_task_id: TaskId, sub_tasks: List[Number
     Returns:
         Dict with 'tasks' as list of newly created sub tasks.
     """
-    models = model_manager.get_models(project_dir)
-    main_task = models.task.get_by_id(main_task_id)
-    if not main_task:
-        return {"error": f"Main task id={main_task_id} not found"}
+    with model_manager.open_models(project_dir) as models:
+        main_task = models.task.get_by_id(main_task_id)
+        if not main_task:
+            return {"error": f"Main task id={main_task_id} not found"}
 
-    _add_sub_tasks(models, main_task, sub_tasks)
-    # 获取所有新创建的子任务并返回
-    tasks = []
-    for sub_task in sub_tasks:
-        task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task.number))
-        if task:
-            tasks.append(task)
-    return {"tasks": tasks}
+        _add_sub_tasks(models, main_task, sub_tasks)
+        # 获取所有新创建的子任务并返回
+        tasks = []
+        for sub_task in sub_tasks:
+            task = models.task.get_by_root_id_and_number(main_task.id, str(sub_task.number))
+            if task:
+                tasks.append(task)
+        return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -154,11 +154,11 @@ def get_main_task(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the main task if found, or error message if not found.
     """
-    models = model_manager.get_models(project_dir)
-    task = _get_main_task_by_id(models, main_task_id)
-    if not task:
-        return {"error": f"Main task id={main_task_id} not found"}
-    return {"task": task}
+    with model_manager.open_models(project_dir) as models:
+        task = _get_main_task_by_id(models, main_task_id)
+        if not task:
+            return {"error": f"Main task id={main_task_id} not found"}
+        return {"task": task}
 
 
 @mcp.tool()
@@ -171,9 +171,9 @@ def list_main_tasks(project_dir: str) -> Dict[str, any]:
 
         Dict with 'tasks' as list of main tasks
     """
-    models = model_manager.get_models(project_dir)
-    tasks = models.task.list_by_parent_id(0)
-    return {"tasks": tasks}
+    with model_manager.open_models(project_dir) as models:
+        tasks = models.task.list_by_parent_id(0)
+        return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -187,9 +187,9 @@ def find_main_tasks(project_dir: str, name: str) -> Dict[str, any]:
     Returns:
         Dict with 'result' as list of matching main tasks
     """
-    models = model_manager.get_models(project_dir)
-    tasks = models.task.list_root_by_name(name)
-    return {"tasks": tasks}
+    with model_manager.open_models(project_dir) as models:
+        tasks = models.task.list_root_by_name(name)
+        return {"tasks": tasks}
 
 
 @mcp.tool()
@@ -202,16 +202,16 @@ def list_sub_tasks(project_dir: str, main_task_id: TaskId) -> Dict[str, any]:
     Returns:
         Dict with 'result' as list of matching sub tasks
     """
-    models = model_manager.get_models(project_dir)
-    main_task = _get_main_task_by_id(models, main_task_id)
-    if not main_task:
-        return {"error": f"Main task id={main_task_id} not found"}
+    with model_manager.open_models(project_dir) as models:
+        main_task = _get_main_task_by_id(models, main_task_id)
+        if not main_task:
+            return {"error": f"Main task id={main_task_id} not found"}
 
-    tasks = models.task.list_by_root_id(main_task.id)
-    return {"tasks": [
-        task for task in tasks
-        if task.parent_id != 0
-    ] if tasks else None}
+        tasks = models.task.list_by_root_id(main_task.id)
+        return {"tasks": [
+            task for task in tasks
+            if task.parent_id != 0
+        ] if tasks else None}
 
 
 @mcp.tool()
@@ -225,9 +225,9 @@ def start_or_resume_main_task(project_dir: str, main_task_id: TaskId) -> Dict[st
     Returns:
         Dict with 'result' as the started or resumed sub task, or None if no task was found
     """
-    models = model_manager.get_models(project_dir)
-    task = models.task.start_or_resume(main_task_id)
-    return {"task": task if task else None}
+    with model_manager.open_models(project_dir) as models:
+        task = models.task.start_or_resume(main_task_id)
+        return {"task": task if task else None}
 
 
 @mcp.tool()
@@ -242,19 +242,19 @@ def finish_sub_task(project_dir: str, main_task_id: TaskId, sub_task_id: TaskId)
     Returns:
         Dict with 'result' as updated task
     """
-    models = model_manager.get_models(project_dir)
-    main_task = models.task.get_by_id(main_task_id)
-    if not main_task:
-        return {"error": f"Main task id={main_task_id} not found"}
+    with model_manager.open_models(project_dir) as models:
+        main_task = models.task.get_by_id(main_task_id)
+        if not main_task:
+            return {"error": f"Main task id={main_task_id} not found"}
 
-    task = models.task.get_by_id(sub_task_id)
-    if not task:
-        return {"error": "Sub task not found"}
-    
-    models.task.update_status(task.id, "finished")
-    # 返回更新后的任务对象
-    updated_task = models.task.get_by_id(task.id)
-    return {"task": updated_task}
+        task = models.task.get_by_id(sub_task_id)
+        if not task:
+            return {"error": "Sub task not found"}
+        
+        models.task.update_status(task.id, "finished")
+        # 返回更新后的任务对象
+        updated_task = models.task.get_by_id(task.id)
+        return {"task": updated_task}
 
 
 @mcp.tool()
@@ -268,13 +268,13 @@ def delete_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'result' as True if successful, or error message if task not found.
     """
-    models = model_manager.get_models(project_dir)
-    task = models.task.get_by_id(task_id)
-    if not task:
-        return {"error": f"Task id={task_id} not found"}
-    
-    models.task.delete_by_id(task_id)
-    return {"result": True}
+    with model_manager.open_models(project_dir) as models:
+        task = models.task.get_by_id(task_id)
+        if not task:
+            return {"error": f"Task id={task_id} not found"}
+        
+        models.task.delete_by_id(task_id)
+        return {"result": True}
 
 
 @mcp.tool()
@@ -287,6 +287,6 @@ def delete_all_tasks(project_dir: str) -> Dict[str, any]:
     Returns:
         Dict with 'result' as True
     """
-    models = model_manager.get_models(project_dir)
-    models.task.delete_all()
-    return {"result": True}
+    with model_manager.open_models(project_dir) as models:
+        models.task.delete_all()
+        return {"result": True}
