@@ -333,6 +333,39 @@ def test_delete_all(task_model):
     assert len(rows) == 2
     assert all(row[-1] == 1 for row in rows)  # 验证所有任务的deleted字段为True
 
+def test_delete_by_id_with_nested_tasks(task_model):
+    """测试删除嵌套任务"""
+    # 创建3级任务树
+    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
+    task_model.insert(root)
+    
+    level2 = Task(id=None, name="Level2", number="1.1", root_id=root.id, parent_id=root.id)
+    task_model.insert(level2)
+    
+    level3 = Task(id=None, name="Level3", number="1.1.1", root_id=root.id, parent_id=level2.id)
+    task_model.insert(level3)
+
+    level4 = Task(id=None, name="Level4", number="1.1.1.1", root_id=root.id, parent_id=level3.id)
+    task_model.insert(level4)
+
+    # 删除中间层任务
+    task_model.delete_by_id(level2.id)
+    
+    # 验证中间层和叶子任务都被删除
+    assert task_model.get_by_id(level2.id) is None
+    assert task_model.get_by_id(level3.id) is None
+    assert task_model.get_by_id(level4.id) is None
+    
+    # 验证根任务仍然存在
+    assert task_model.get_by_id(root.id) is not None
+    
+    # 验证任务仍然存在于数据库中
+    cursor = task_model.conn.cursor()
+    cursor.execute("SELECT * FROM tasks WHERE id IN (?, ?, ?)", (level2.id, level3.id, level4.id))
+    rows = cursor.fetchall()
+    assert len(rows) == 3
+    assert all(row[-1] == 1 for row in rows)  # 验证deleted字段为True
+
 def test_query_filter_deleted_tasks(task_model):
     """测试查询方法过滤已删除任务"""
     root_task = Task(id=None, name="Test1 Root", number="1", root_id=0, parent_id=0)
