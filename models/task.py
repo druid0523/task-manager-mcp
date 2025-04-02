@@ -412,6 +412,8 @@ class TaskModel:
                 WHERE parent_id IN ({}) AND deleted = FALSE
             """.format(','.join('?' * len(current_level))), current_level)
             current_level = [row[0] for row in cursor.fetchall()]
+        
+        self._check_parent_status(task_id)
 
     def delete_all(self):
         """Mark all tasks as deleted."""
