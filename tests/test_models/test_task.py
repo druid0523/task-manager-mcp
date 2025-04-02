@@ -450,3 +450,64 @@ def test_unique_index_with_deleted_tasks(task_model):
     assert len(rows) == 2
     assert rows[0][-1] == 1  # 第一个任务已删除
     assert rows[1][-1] == 0  # 第二个任务未删除
+
+def test_delete_by_id_check_parent_status(task_model):
+    """测试删除任务后检查父任务状态"""
+    # 创建父任务
+    parent = Task(id=None, name="Parent", number="1", root_id=0, parent_id=0)
+    task_model.insert(parent)
+    
+    # 创建两个已完成子任务
+    child1 = Task(id=None, name="Child1", number="1.1", root_id=parent.id, parent_id=parent.id)
+    task_model.insert(child1)
+    task_model.update_status(child1.id, "finished")
+    
+    child2 = Task(id=None, name="Child2", number="1.2", root_id=parent.id, parent_id=parent.id)
+    task_model.insert(child2)
+    task_model.update_status(child2.id, "finished")
+    
+    # 删除一个子任务
+    task_model.delete_by_id(child1.id)
+    
+    # 验证父任务状态
+    updated_parent = task_model.get_by_id(parent.id)
+    assert updated_parent.status == "finished"
+
+def test_delete_by_id_check_parent_status_with_unfinished(task_model):
+    """测试删除未完成子任务后父任务状态"""
+    # 创建父任务
+    parent = Task(id=None, name="Parent", number="1", root_id=0, parent_id=0)
+    task_model.insert(parent)
+    
+    # 创建一个已完成和一个未完成子任务
+    child1 = Task(id=None, name="Child1", number="1.1", root_id=parent.id, parent_id=parent.id)
+    task_model.insert(child1)
+    task_model.update_status(child1.id, "finished")
+    
+    child2 = Task(id=None, name="Child2", number="1.2", root_id=parent.id, parent_id=parent.id)
+    task_model.insert(child2)
+    
+    # 删除未完成子任务
+    task_model.delete_by_id(child2.id)
+    
+    # 验证父任务状态
+    updated_parent = task_model.get_by_id(parent.id)
+    assert updated_parent.status == "finished"
+
+def test_delete_by_id_check_parent_status_final_child(task_model):
+    """测试删除最后一个子任务后父任务状态"""
+    # 创建父任务
+    parent = Task(id=None, name="Parent", number="1", root_id=0, parent_id=0)
+    task_model.insert(parent)
+    
+    # 创建一个已完成子任务
+    child1 = Task(id=None, name="Child1", number="1.1", root_id=parent.id, parent_id=parent.id)
+    task_model.insert(child1)
+    task_model.update_status(child1.id, "finished")
+    
+    # 删除最后一个子任务
+    task_model.delete_by_id(child1.id)
+    
+    # 验证父任务状态
+    updated_parent = task_model.get_by_id(parent.id)
+    assert updated_parent.status == "finished"
