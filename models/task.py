@@ -362,37 +362,29 @@ class TaskModel:
             for row in cursor.fetchall()
         ]
 
-    def start_or_resume(self, root_id: int) -> Optional[Task]:
-        """Start or resume a task with the given root ID.
-        
-        Args:
-            root_id: The root ID of the task to start or resume
-            
-        Returns:
-            The started or resumed sub task, or None if no task was found
-        """
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT id FROM tasks
-            WHERE root_id = ? AND is_leaf = 1 AND status = 'started' AND deleted = FALSE
-            LIMIT 1
-        """, (root_id,))
-        row = cursor.fetchone()
-        if row:
-            return self.get_by_id(row[0])
-        
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT id FROM tasks
-            WHERE root_id = ? AND is_leaf = 1 AND status = 'created'
-            LIMIT 1
-        """, (root_id,))
-        row = cursor.fetchone()
-        if not row:
-            return None
-
-        updated_task = self.update_status(row[0], "started")
-        return updated_task
+    def start_by_id(self, task_id: int):
+        """Start a task by its ID."""
+        task = self.get_by_id(task_id)
+        if not task:
+            raise ValueError("Task not found")
+        if task.status != 'created':
+            raise ValueError("Task is not in 'created' status")
+        if not task.is_leaf:
+            raise ValueError("Task is not a leaf")
+        self.update_status(task_id, 'started')
+        return self.get_by_id(task_id)
+    
+    def finish_by_id(self, task_id: int):
+        """Finish a task by its ID."""
+        task = self.get_by_id(task_id)
+        if not task:
+            raise ValueError("Task not found")
+        if task.status != 'started':
+            raise ValueError("Task is not in 'started' status")
+        if not task.is_leaf:
+            raise ValueError("Task is not a leaf")
+        self.update_status(task_id, 'finished')
+        return self.get_by_id(task_id)
 
     def delete_by_id(self, task_id: int):
         """Mark a task and all its descendants as deleted by its ID."""
@@ -418,3 +410,10 @@ class TaskModel:
     def delete_all(self):
         """Mark all tasks as deleted."""
         self._conn.execute("UPDATE tasks SET deleted = TRUE")
+
+    def clear(self):
+        '''Clear the task table'''
+        # Clear all tasks
+        self._conn.execute("DELETE FROM tasks")
+        # Reset the autoincrement counter
+        self._conn.execute("DELETE FROM sqlite_sequence WHERE name='tasks'")

@@ -233,64 +233,6 @@ def test_list_root_by_name_prefix(task_model):
     results = task_model.list_root_by_name("XYZ")
     assert len(results) == 0
 
-def test_start_or_resume_with_started_subtask(task_model):
-    """测试存在已开始的子任务时返回该子任务"""
-    # 创建主任务
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
-    task_model.insert(root)
-    
-    # 创建已开始的子任务
-    started_task = Task(
-        id=None, name="Started Task", number="1.1", 
-        root_id=root.id, parent_id=root.id, 
-        status="started", is_leaf=True
-    )
-    task_model.insert(started_task)
-    
-    # 调用 start_or_resume
-    result = task_model.start_or_resume(root.id)
-    assert result is not None
-    assert result.id == started_task.id
-    assert result.status == "started"
-
-def test_start_or_resume_with_created_subtask(task_model):
-    """测试存在未开始的子任务时开始并返回该子任务"""
-    # 创建主任务
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0)
-    task_model.insert(root)
-    
-    # 创建未开始的子任务
-    created_task = Task(
-        id=None, name="Created Task", number="1.1", 
-        root_id=root.id, parent_id=root.id, 
-        status="created", is_leaf=True
-    )
-    task_model.insert(created_task)
-    
-    # 调用 start_or_resume
-    result = task_model.start_or_resume(root.id)
-    assert result is not None
-    assert result.id == created_task.id
-    assert result.status == "started"
-
-def test_start_or_resume_no_available_subtask(task_model):
-    """测试没有可用的子任务时返回 None"""
-    # 创建主任务
-    root = Task(id=None, name="Root", number="1", root_id=0, parent_id=0, status="finished")
-    task_model.insert(root)
-
-    # 创建已完成的子任务
-    created_task = Task(
-        id=None, name="Finished Task", number="1.1",
-        root_id=root.id, parent_id=root.id,
-        status="finished", is_leaf=True
-    )
-    task_model.insert(created_task)
-
-    # 调用 start_or_resume
-    result = task_model.start_or_resume(root.id)
-    assert result is None
-
 def test_delete_by_id(task_model):
     """测试逻辑删除单个任务"""
     # 创建任务
@@ -511,3 +453,85 @@ def test_delete_by_id_check_parent_status_final_child(task_model):
     # 验证父任务状态
     updated_parent = task_model.get_by_id(parent.id)
     assert updated_parent.status == "finished"
+
+def test_start_by_id_valid_transition(task_model):
+    """测试从created状态正常开始任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True)
+    task_model.insert(task)
+    
+    started_task = task_model.start_by_id(task.id)
+    assert started_task is not None
+    assert started_task.status == "started"
+    assert started_task.started_time is not None
+
+def test_start_by_id_invalid_transition(task_model):
+    """测试从非created状态开始任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True, status="started")
+    task_model.insert(task)
+    
+    with pytest.raises(ValueError):
+        task_model.start_by_id(task.id)
+
+def test_start_by_id_non_leaf(task_model):
+    """测试开始非叶子任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=False)
+    task_model.insert(task)
+    
+    with pytest.raises(ValueError):
+        task_model.start_by_id(task.id)
+
+def test_finish_by_id_valid_transition(task_model):
+    """测试从started状态正常完成任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True, status="started")
+    task_model.insert(task)
+    
+    finished_task = task_model.finish_by_id(task.id)
+    assert finished_task is not None
+    assert finished_task.status == "finished"
+    assert finished_task.finished_time is not None
+
+def test_finish_by_id_invalid_transition(task_model):
+    """测试从非started状态完成任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True, status="created")
+    task_model.insert(task)
+    
+    with pytest.raises(ValueError):
+        task_model.finish_by_id(task.id)
+
+def test_finish_by_id_non_leaf(task_model):
+    """测试完成非叶子任务"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=False, status="started")
+    task_model.insert(task)
+    
+    with pytest.raises(ValueError):
+        task_model.finish_by_id(task.id)
+
+def test_clear(task_model):
+    """测试清理任务表"""
+    # 添加一些任务
+    task1 = Task(id=None, name="Task1", number="1", root_id=0, parent_id=0)
+    task2 = Task(id=None, name="Task2", number="2", root_id=0, parent_id=0)
+    task_model.insert(task1)
+    task_model.insert(task2)
+    
+    # 验证任务存在
+    assert task_model.get_by_id(task1.id) is not None
+    assert task_model.get_by_id(task2.id) is not None
+    
+    # 重置任务表
+    task_model.clear()
+    
+    # 验证所有任务已被删除
+    assert task_model.get_by_id(task1.id) is None
+    assert task_model.get_by_id(task2.id) is None
+    
+    # 验证auto-increment已重置
+    cursor = task_model._conn.cursor()
+    cursor.execute("SELECT seq FROM sqlite_sequence WHERE name='tasks'")
+    row = cursor.fetchone()
+    assert row is None
+    
+    # 添加新任务验证ID从1开始
+    new_task = Task(id=None, name="New Task", number="1", root_id=0, parent_id=0)
+    task_model.insert(new_task)
+    assert new_task.id == 1
