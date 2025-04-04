@@ -18,7 +18,7 @@ def metadata_model(db_connection):
 def test_init_db(metadata_model, db_connection):
     # 验证表结构是否正确创建
     cursor = db_connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='vars'")
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'")
     assert cursor.fetchone() is not None
 
 def test_set_and_get_var(metadata_model):
