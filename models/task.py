@@ -1,3 +1,4 @@
+from contextlib import closing
 import dataclasses
 import sqlite3
 from sqlite3 import Row
@@ -68,12 +69,12 @@ class TaskModel:
 
     def check_db(self) -> bool:
         """检查tasks表是否存在"""
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT name FROM sqlite_master
-            WHERE type='table' AND name='tasks'
-        """)
-        return cursor.fetchone() is not None
+        with closing(self._conn.cursor()) as cursor:
+            cursor.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='tasks'
+            """)
+            return cursor.fetchone() is not None
 
     def init_db(self):
         self._conn.execute("""
@@ -104,93 +105,96 @@ class TaskModel:
         """)
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE id = ? AND deleted = FALSE
-        """, (task_id,))
-        row = cursor.fetchone()
-        if row:
-            return self._from_row(row)
-        return None
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                       number, is_leaf, root_id, parent_id,
+                       created_time, started_time, finished_time
+                FROM tasks
+                WHERE id = ? AND deleted = FALSE
+            """, (task_id,))
+            row = cursor.fetchone()
+            if row:
+                return self._from_row(row)
+            return None
 
     def get_by_root_id_and_number(self, root_id: int, number: str) -> Optional[Task]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE root_id = ? AND number = ? AND deleted = FALSE
-        """, (root_id, number))
-        row = cursor.fetchone()
-        if row:
-            return self._from_row(row)
-        return None
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                       number, is_leaf, root_id, parent_id,
+                       created_time, started_time, finished_time
+                FROM tasks
+                WHERE root_id = ? AND number = ? AND deleted = FALSE
+            """, (root_id, number))
+            row = cursor.fetchone()
+            if row:
+                return self._from_row(row)
+            return None
 
     def list_by_parent_id(self, parent_id: int) -> List[Task]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE parent_id = ? AND deleted = FALSE
-            ORDER BY number
-        """, (parent_id,))
-        return [
-            self._from_row(row)
-            for row in cursor.fetchall()
-        ]
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                       number, is_leaf, root_id, parent_id,
+                       created_time, started_time, finished_time
+                FROM tasks
+                WHERE parent_id = ? AND deleted = FALSE
+                ORDER BY number
+            """, (parent_id,))
+            return [
+                self._from_row(row)
+                for row in cursor.fetchall()
+            ]
 
     def list_by_root_id(self, root_id: int) -> List[Task]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE root_id = ? AND deleted = FALSE
-            ORDER by number
-        """, (root_id,))
-        return [
-            self._from_row(row)
-            for row in cursor.fetchall()
-        ]
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                       number, is_leaf, root_id, parent_id,
+                       created_time, started_time, finished_time
+                FROM tasks
+                WHERE root_id = ? AND deleted = FALSE
+                ORDER by number
+            """, (root_id,))
+            return [
+                self._from_row(row)
+                for row in cursor.fetchall()
+            ]
 
     def list_leaves(self, root_id: int) -> List[Task]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE root_id = ? AND is_leaf = 1 AND deleted = FALSE
-            ORDER BY number
-        """, (root_id,))
-        return [
-            self._from_row(row)
-            for row in cursor.fetchall()
-        ]
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                       number, is_leaf, root_id, parent_id,
+                       created_time, started_time, finished_time
+                FROM tasks
+                WHERE root_id = ? AND is_leaf = 1 AND deleted = FALSE
+                ORDER BY number
+            """, (root_id,))
+            return [
+                self._from_row(row)
+                for row in cursor.fetchall()
+            ]
 
     def insert(self, task: Task):
         is_root = task.parent_id == 0
         # Insert new task
-        cursor = self._conn.execute("""
+        sql = """
             INSERT INTO tasks (
                 name, description, status, version,
                 number, is_leaf, root_id, parent_id,
                 created_time, started_time, finished_time
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        """
+        sql_params = (
             task.name, task.description, task.status, task.version,
             task.number, task.is_leaf, task.root_id, task.parent_id,
             task.created_time, task.started_time, task.finished_time
-        ))
-        task.id = cursor.lastrowid
+        )
+        with closing(self._conn.execute(sql, sql_params)) as cursor:
+            task.id = cursor.lastrowid
+
         if is_root:
             # Update root task
             self._conn.execute("""
@@ -311,19 +315,19 @@ class TaskModel:
         Returns:
             List of matching root tasks
         """
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id,
-                   created_time, started_time, finished_time
-            FROM tasks
-            WHERE parent_id = 0 AND name LIKE ? AND deleted = FALSE
-            ORDER BY name
-        """, (f"{name}%",))
-        return [
-            self._from_row(row)
-            for row in cursor.fetchall()
-        ]
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT id, name, description, status, version,
+                    number, is_leaf, root_id, parent_id,
+                    created_time, started_time, finished_time
+                FROM tasks
+                WHERE parent_id = 0 AND name LIKE ? AND deleted = FALSE
+                ORDER BY name
+            """, (f"{name}%",))
+            return [
+                self._from_row(row)
+                for row in cursor.fetchall()
+            ]
 
     def start_by_id(self, task_id: int):
         """Start a task by its ID."""
@@ -361,13 +365,13 @@ class TaskModel:
             """.format(','.join('?' * len(current_level))), current_level)
 
             # Get next level children
-            cursor = get_dict_cursor(self._conn)
-            cursor.execute("""
-                SELECT id FROM tasks
-                WHERE parent_id IN ({}) AND deleted = FALSE
-            """.format(','.join('?' * len(current_level))), current_level)
-            current_level = [row['id'] for row in cursor.fetchall()]
-        
+            with closing(get_dict_cursor(self._conn)) as cursor:
+                cursor.execute("""
+                    SELECT id FROM tasks
+                    WHERE parent_id IN ({}) AND deleted = FALSE
+                """.format(','.join('?' * len(current_level))), current_level)
+                current_level = [row['id'] for row in cursor.fetchall()]
+
         self._check_parent_status(task_id)
 
     def delete_all(self):

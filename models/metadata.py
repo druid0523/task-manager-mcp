@@ -1,3 +1,4 @@
+from contextlib import closing
 import sqlite3
 from typing import Optional
 from models.utils import get_dict_cursor
@@ -6,15 +7,14 @@ from models.utils import get_dict_cursor
 class MetadataModel:
     def __init__(self, conn: sqlite3.Connection):
         self._conn = conn
-
     def check_db(self) -> bool:
         """检查vars表是否存在"""
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT name FROM sqlite_master
-            WHERE type='table' AND name='metadata'
-        """)
-        return cursor.fetchone() is not None
+        with closing(self._conn.cursor()) as cursor:
+            cursor.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='metadata'
+            """)
+            return cursor.fetchone() is not None
 
     def init_db(self):
         self._conn.execute("""
@@ -32,9 +32,9 @@ class MetadataModel:
         """, (key, value))
 
     def get_var(self, key: str) -> Optional[str]:
-        cursor = get_dict_cursor(self._conn)
-        cursor.execute("""
-            SELECT value FROM metadata WHERE key = ?
-        """, (key,))
-        row = cursor.fetchone()
-        return row['value'] if row else None
+        with closing(get_dict_cursor(self._conn)) as cursor:
+            cursor.execute("""
+                SELECT value FROM metadata WHERE key = ?
+            """, (key,))
+            row = cursor.fetchone()
+            return row['value'] if row else None
