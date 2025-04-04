@@ -7,7 +7,7 @@ from models import model_manager
 from models.task import Task
 from server.tools import (TaskNode, add_task_tree, delete_task,
                           finish_leaf_task, list_leaf_tasks_by_root,
-                          list_roots, list_tasks_by_root, reset,
+                          list_roots, list_tasks_by_root, clear_all_tasks,
                           start_leaf_task)
 
 
@@ -102,16 +102,16 @@ def test_delete_task(project_dir):
     with model_manager.open_models(project_dir) as models:
         assert models.task.get_by_id(task_id) is None
 
-def test_reset(project_dir):
+def test_clear_all_tasks(project_dir):
     # 创建一些任务
     root = TaskNode(name="Root")
     add_task_tree(project_dir, root)
     
     # 重置项目
-    result = reset(project_dir)
+    result = clear_all_tasks(project_dir)
     assert result['result'] is True
     
     # 验证任务已被清除
     with model_manager.open_models(project_dir) as models:
-        tasks = models.task.list_all()
+        tasks = models.task.list_by_parent_id(0)
         assert len(tasks) == 0
