@@ -29,25 +29,13 @@ class Task:
     deleted: bool = False
 
 
-
 class TaskModel:
-    @staticmethod
-    def _from_row(row) -> Task:
-        """将数据库行转换为Task对象"""
-        return Task(
-            id=row['id'],
-            name=row['name'],
-            description=row['description'],
-            status=row['status'],
-            version=row['version'],
-            number=row['number'],
-            is_leaf=row['is_leaf'],
-            root_id=row['root_id'],
-            parent_id=row['parent_id'],
-            created_time=datetime.fromisoformat(row['created_time']),
-            started_time=datetime.fromisoformat(row['started_time']) if row['started_time'] else None,
-            finished_time=datetime.fromisoformat(row['finished_time']) if row['finished_time'] else None
-        )
+    '''Note: This class does not handle transactions. The caller must manage them manually.
+    Example:
+    with connection:
+        model.insert(task)
+        other_model.update(data)
+    '''
 
     # 预定义可更新字段映射（字段名: 属性名）
     field_map = {
@@ -103,6 +91,24 @@ class TaskModel:
         self._conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)
         """)
+
+    @staticmethod
+    def _from_row(row) -> Task:
+        """将数据库行转换为Task对象"""
+        return Task(
+            id=row['id'],
+            name=row['name'],
+            description=row['description'],
+            status=row['status'],
+            version=row['version'],
+            number=row['number'],
+            is_leaf=row['is_leaf'],
+            root_id=row['root_id'],
+            parent_id=row['parent_id'],
+            created_time=datetime.fromisoformat(row['created_time']),
+            started_time=datetime.fromisoformat(row['started_time']) if row['started_time'] else None,
+            finished_time=datetime.fromisoformat(row['finished_time']) if row['finished_time'] else None
+        )
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:

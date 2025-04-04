@@ -89,7 +89,7 @@ def add_task_tree(project_dir: str, root: TaskNode, parent_id: int = 0) -> Dict[
     Returns:
         Dict with 'tasks' as the newly created tasks.
     '''
-    with model_manager.open_models(project_dir) as models:
+    with model_manager.open_models(project_dir).transaction() as models:
         if parent_id != 0:
             parent_task = models.task.get_by_id(parent_id)
             root_id = parent_task.root_id
@@ -111,6 +111,7 @@ def list_roots(project_dir: str) -> Dict[str, any]:
         Dict with 'tasks' as the root task list.
     '''
     with model_manager.open_models(project_dir) as models:
+        # 单条sql, 无需开启事务
         tasks = models.task.list_by_parent_id(0)
         return {'tasks': tasks}
 
@@ -127,6 +128,7 @@ def list_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
         Dict with 'tasks' as the task list.
     '''
     with model_manager.open_models(project_dir) as models:
+        # 单条sql, 无需开启事务
         tasks = models.task.list_by_root_id(root_id)
         return {'tasks': tasks}
 
@@ -145,6 +147,7 @@ def list_leaf_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
         Dict with 'tasks' as the leaf task list.
     '''
     with model_manager.open_models(project_dir) as models:
+        # 单条sql, 无需开启事务
         tasks = models.task.list_leaves(root_id)
         return {'tasks': tasks}
 
@@ -162,7 +165,7 @@ def start_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the started task.
     '''
-    with model_manager.open_models(project_dir) as models:
+    with model_manager.open_models(project_dir).transaction() as models:
         task = models.task.start_by_id(task_id)
         return {'task': task}
 
@@ -180,7 +183,7 @@ def finish_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the finished task.
     '''
-    with model_manager.open_models(project_dir)as models:
+    with model_manager.open_models(project_dir).transaction() as models:
         task = models.task.finish_by_id(task_id)
         return {'task': task}
 
@@ -196,7 +199,7 @@ def delete_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the deleted task.
     '''
-    with model_manager.open_models(project_dir) as models:
+    with model_manager.open_models(project_dir).transaction() as models:
         models.task.delete_by_id(task_id)
         return {'result': True}
 
@@ -211,6 +214,6 @@ def clear_all_tasks(project_dir: str) -> Dict[str, any]:
     Returns:
         Dict with 'result' as True.
     '''
-    with model_manager.open_models(project_dir) as models:
+    with model_manager.open_models(project_dir).transaction() as models:
         models.task.clear()
         return {'result': True}
