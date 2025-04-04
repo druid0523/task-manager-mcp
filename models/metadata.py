@@ -1,5 +1,6 @@
 import sqlite3
 from typing import Optional
+from models.utils import get_dict_cursor
 
 
 class MetadataModel:
@@ -11,13 +12,13 @@ class MetadataModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT name FROM sqlite_master
-            WHERE type='table' AND name='vars'
+            WHERE type='table' AND name='metadata'
         """)
         return cursor.fetchone() is not None
 
     def init_db(self):
         self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS vars (
+            CREATE TABLE IF NOT EXISTS metadata (
                 key VARCHAR(256) PRIMARY KEY,
                 value TEXT
             )
@@ -25,15 +26,15 @@ class MetadataModel:
 
     def set_var(self, key: str, value: str):
         self._conn.execute("""
-            INSERT INTO vars (key, value)
+            INSERT INTO metadata (key, value)
             VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
         """, (key, value))
 
     def get_var(self, key: str) -> Optional[str]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
-            SELECT value FROM vars WHERE key = ?
+            SELECT value FROM metadata WHERE key = ?
         """, (key,))
         row = cursor.fetchone()
-        return row[0] if row else None
+        return row['value'] if row else None
