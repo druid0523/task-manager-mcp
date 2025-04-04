@@ -87,6 +87,37 @@ class Models:
         return self._task
 
 
+class ModelsContextBuilder:
+    def __init__(self):
+        self._exit_stack = ExitStack()
+        self._conn_ctx = None
+        self._conn = None
+        self._transaction = False
+
+    def connect(self, project_dir: str) -> 'ModelsContextBuilder':
+        if self._conn_ctx is not None:
+            raise RuntimeError("Connection already opened.")
+        self._conn_ctx = ConnectionManager.get_instance().open_connection(project_dir)
+        return self
+
+    def transaction(self) -> 'ModelsContextBuilder':
+        self._transaction = True
+        return self
+
+    def __enter__(self) -> Models:
+        self._conn = self._exit_stack.enter_context(self._conn_ctx)
+        if self._transaction:
+            self._exit_stack.enter_context(self._conn)
+        return Models(self._conn)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+
+        self._conn_ctx = None
+        self._conn = None
+        self._transaction = False
+
+
 class ModelManager:
     _instance = None
     _lock = threading.RLock()
@@ -101,13 +132,8 @@ class ModelManager:
                 cls._instance = cls()
         return cls._instance
 
-    @contextmanager
-    def open_models(self, project_dir: str) -> Iterator[Models]:
-        with connection_manager.open_connection(project_dir) as conn:
-            models = Models(conn)
-
-            with conn:
-                yield models
+    def open_models(self, project_dir: str) -> ModelsContextBuilder:
+        return ModelsContextBuilder().connect(project_dir)
 
 
 model_manager = ModelManager.get_instance()
