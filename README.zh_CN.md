@@ -6,9 +6,6 @@ Task Manager MCP 是一个任务管理MCP(Model Context Protocol)服务，提供
 
 核心特性：
 - 主任务/子任务层级化建模
-- 任务状态机与全链路追踪
-- 优先级调度机制（TODO）
-- 实时进度监控（TODO）
 
 ## 多语言文档
 - en [English](README.md)
