@@ -113,7 +113,8 @@ class TaskModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id
+                   number, is_leaf, root_id, parent_id,
+                   created_time, started_time, finished_time
             FROM tasks
             WHERE root_id = ? AND number = ? AND deleted = FALSE
         """, (root_id, number))
@@ -128,7 +129,10 @@ class TaskModel:
                 number=row[5],
                 is_leaf=row[6],
                 root_id=row[7],
-                parent_id=row[8]
+                parent_id=row[8],
+                created_time=datetime.fromisoformat(row[9]),
+                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
+                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
             )
         return None
 
@@ -136,7 +140,8 @@ class TaskModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id
+                   number, is_leaf, root_id, parent_id,
+                   created_time, started_time, finished_time
             FROM tasks
             WHERE parent_id = ? AND deleted = FALSE
             ORDER BY number
@@ -151,7 +156,10 @@ class TaskModel:
                 number=row[5],
                 is_leaf=row[6],
                 root_id=row[7],
-                parent_id=row[8]
+                parent_id=row[8],
+                created_time=datetime.fromisoformat(row[9]),
+                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
+                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
             )
             for row in cursor.fetchall()
         ]
@@ -160,10 +168,11 @@ class TaskModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id
+                   number, is_leaf, root_id, parent_id,
+                   created_time, started_time, finished_time
             FROM tasks
             WHERE root_id = ? AND deleted = FALSE
-            ORDER BY number
+            ORDER by number
         """, (root_id,))
         return [
             Task(
@@ -175,7 +184,10 @@ class TaskModel:
                 number=row[5],
                 is_leaf=row[6],
                 root_id=row[7],
-                parent_id=row[8]
+                parent_id=row[8],
+                created_time=datetime.fromisoformat(row[9]),
+                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
+                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
             )
             for row in cursor.fetchall()
         ]
@@ -184,7 +196,8 @@ class TaskModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id
+                   number, is_leaf, root_id, parent_id,
+                   created_time, started_time, finished_time
             FROM tasks
             WHERE root_id = ? AND is_leaf = 1 AND deleted = FALSE
             ORDER BY number
@@ -199,7 +212,10 @@ class TaskModel:
                 number=row[5],
                 is_leaf=row[6],
                 root_id=row[7],
-                parent_id=row[8]
+                parent_id=row[8],
+                created_time=datetime.fromisoformat(row[9]),
+                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
+                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
             )
             for row in cursor.fetchall()
         ]
@@ -342,7 +358,8 @@ class TaskModel:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT id, name, description, status, version,
-                   number, is_leaf, root_id, parent_id
+                   number, is_leaf, root_id, parent_id,
+                   created_time, started_time, finished_time
             FROM tasks
             WHERE parent_id = 0 AND name LIKE ? AND deleted = FALSE
             ORDER BY name
@@ -357,7 +374,10 @@ class TaskModel:
                 number=row[5],
                 is_leaf=row[6],
                 root_id=row[7],
-                parent_id=row[8]
+                parent_id=row[8],
+                created_time=datetime.fromisoformat(row[9]),
+                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
+                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
             )
             for row in cursor.fetchall()
         ]
