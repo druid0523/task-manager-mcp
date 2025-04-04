@@ -21,7 +21,7 @@ def test_init_db(task_model, db_connection):
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
     assert cursor.fetchone() is not None
 
-def test_save_and_get_by_id(task_model):
+def test_insert_and_get_by_id(task_model):
     # 测试保存和获取任务
     task = Task(
         id=None,

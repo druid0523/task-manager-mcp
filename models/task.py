@@ -1,7 +1,10 @@
 import dataclasses
 import sqlite3
+from sqlite3 import Row
 from datetime import datetime
 from typing import List, Optional
+
+from models.utils import get_dict_cursor
 
 
 @dataclasses.dataclass
@@ -27,6 +30,24 @@ class Task:
 
 
 class TaskModel:
+    @staticmethod
+    def _from_row(row) -> Task:
+        """将数据库行转换为Task对象"""
+        return Task(
+            id=row['id'],
+            name=row['name'],
+            description=row['description'],
+            status=row['status'],
+            version=row['version'],
+            number=row['number'],
+            is_leaf=row['is_leaf'],
+            root_id=row['root_id'],
+            parent_id=row['parent_id'],
+            created_time=datetime.fromisoformat(row['created_time']),
+            started_time=datetime.fromisoformat(row['started_time']) if row['started_time'] else None,
+            finished_time=datetime.fromisoformat(row['finished_time']) if row['finished_time'] else None
+        )
+
     # 预定义可更新字段映射（字段名: 属性名）
     field_map = {
         'name': 'name',
@@ -83,7 +104,7 @@ class TaskModel:
         """)
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -93,24 +114,11 @@ class TaskModel:
         """, (task_id,))
         row = cursor.fetchone()
         if row:
-            return Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            return self._from_row(row)
         return None
 
     def get_by_root_id_and_number(self, root_id: int, number: str) -> Optional[Task]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -120,24 +128,11 @@ class TaskModel:
         """, (root_id, number))
         row = cursor.fetchone()
         if row:
-            return Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            return self._from_row(row)
         return None
 
     def list_by_parent_id(self, parent_id: int) -> List[Task]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -147,25 +142,12 @@ class TaskModel:
             ORDER BY number
         """, (parent_id,))
         return [
-            Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            self._from_row(row)
             for row in cursor.fetchall()
         ]
 
     def list_by_root_id(self, root_id: int) -> List[Task]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -175,25 +157,12 @@ class TaskModel:
             ORDER by number
         """, (root_id,))
         return [
-            Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            self._from_row(row)
             for row in cursor.fetchall()
         ]
 
     def list_leaves(self, root_id: int) -> List[Task]:
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -203,20 +172,7 @@ class TaskModel:
             ORDER BY number
         """, (root_id,))
         return [
-            Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            self._from_row(row)
             for row in cursor.fetchall()
         ]
 
@@ -355,7 +311,7 @@ class TaskModel:
         Returns:
             List of matching root tasks
         """
-        cursor = self._conn.cursor()
+        cursor = get_dict_cursor(self._conn)
         cursor.execute("""
             SELECT id, name, description, status, version,
                    number, is_leaf, root_id, parent_id,
@@ -365,20 +321,7 @@ class TaskModel:
             ORDER BY name
         """, (f"{name}%",))
         return [
-            Task(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                status=row[3],
-                version=row[4],
-                number=row[5],
-                is_leaf=row[6],
-                root_id=row[7],
-                parent_id=row[8],
-                created_time=datetime.fromisoformat(row[9]),
-                started_time=datetime.fromisoformat(row[10]) if row[10] else None,
-                finished_time=datetime.fromisoformat(row[11]) if row[11] else None
-            )
+            self._from_row(row)
             for row in cursor.fetchall()
         ]
 
@@ -418,12 +361,12 @@ class TaskModel:
             """.format(','.join('?' * len(current_level))), current_level)
 
             # Get next level children
-            cursor = self._conn.cursor()
+            cursor = get_dict_cursor(self._conn)
             cursor.execute("""
                 SELECT id FROM tasks
                 WHERE parent_id IN ({}) AND deleted = FALSE
             """.format(','.join('?' * len(current_level))), current_level)
-            current_level = [row[0] for row in cursor.fetchall()]
+            current_level = [row['id'] for row in cursor.fetchall()]
         
         self._check_parent_status(task_id)
 
