@@ -1,6 +1,7 @@
-from contextlib import closing
 import sqlite3
+from contextlib import closing
 from typing import Optional
+
 from models.utils import get_dict_cursor
 
 

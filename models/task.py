@@ -1,9 +1,11 @@
-from contextlib import closing
 import dataclasses
 import sqlite3
-from sqlite3 import Row
+from contextlib import closing
 from datetime import datetime, timedelta
+from sqlite3 import Row
 from typing import List, Optional
+
+from loguru import logger
 
 from models.utils import get_dict_cursor
 
@@ -41,7 +43,7 @@ class Task:
 
     @planned_duration.setter
     def planned_duration(self, duration: float):
-        """设置计划持续时间（单位：秒），自动更新planned_finish_time"""
+        """设置计划持续时间(单位: 秒), 自动更新planned_finish_time"""
         if self.planned_start_time and duration:
             self.planned_finish_time = self.planned_start_time + timedelta(seconds=duration)
 
@@ -230,6 +232,7 @@ class TaskModel:
         )
         with closing(self._conn.execute(sql, sql_params)) as cursor:
             task.id = cursor.lastrowid
+            logger.info(f"Inserted new task with id {task.id}, name: {task.name}")
 
         if is_root:
             # Update root task
@@ -332,9 +335,7 @@ class TaskModel:
             'started': ['finished']
         }
         if new_status not in valid_transitions.get(task.status, []):
-            raise self.InvalidStatusTransition(
-                f"Cannot transition Task id={task_id} from {task.status} to {new_status}"
-            )
+            raise self.InvalidStatusTransition(f"Cannot transition Task id={task_id} from {task.status} to {new_status}")
 
         # Update status and related timestamps
         task.status = new_status
@@ -377,13 +378,21 @@ class TaskModel:
         task = self.get_by_id(task_id)
         if not task:
             raise ValueError("Task not found")
-        if task.status != 'created':
-            raise ValueError("Task is not in 'created' status")
         if not task.is_leaf:
             raise ValueError("Task is not a leaf")
         self.update_status(task_id, 'started')
         return self.get_by_id(task_id)
-    
+
+    def finish_by_id(self, task_id: int):
+        """Finish a task by its ID."""
+        task = self.get_by_id(task_id)
+        if not task:
+            raise ValueError("Task not found")
+        if not task.is_leaf:
+            raise ValueError("Task is not a leaf")
+        self.update_status(task_id, 'finished')
+        return self.get_by_id(task_id)
+
     def update_progress(self, task_id: int, progress: float) -> Task:
         """Update task progress and recursively update parent tasks.
         
@@ -403,7 +412,10 @@ class TaskModel:
         task = self.get_by_id(task_id)
         if not task:
             raise ValueError(f"Task with id {task_id} not found")
-            
+
+        if not task.is_leaf:
+            raise ValueError(f"Task with id {task_id} is not a leaf task")
+
         # Update current task progress
         task.progress = progress
         self.update(task, fields=['progress'])
@@ -416,18 +428,6 @@ class TaskModel:
                 avg_progress = sum(child.progress for child in children) / len(children)
                 self.update_progress(task.parent_id, avg_progress)
         return task
-
-    def finish_by_id(self, task_id: int):
-        """Finish a task by its ID."""
-        task = self.get_by_id(task_id)
-        if not task:
-            raise ValueError("Task not found")
-        if task.status != 'started':
-            raise ValueError("Task is not in 'started' status")
-        if not task.is_leaf:
-            raise ValueError("Task is not a leaf")
-        self.update_status(task_id, 'finished')
-        return self.get_by_id(task_id)
 
     def delete_by_id(self, task_id: int):
         """Mark a task and all its descendants as deleted by its ID."""
