@@ -1,9 +1,11 @@
-from contextlib import ExitStack, contextmanager
-import uuid
 import sqlite3
 import threading
+import uuid
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, Optional
+from typing import Iterator
+
+from loguru import logger
 
 from models.metadata import MetadataModel
 from models.task import TaskModel
@@ -29,6 +31,7 @@ class ConnectionManager:
         return Path(project_dir) / ".taskmgr" / "taskmgr.sqlite"
 
     def _acquire_connection(self, conn_id: str, project_dir: str):
+        logger.debug(f"Acquire connection {conn_id}")
         with self._connection_dict_lock:
             db_path = self.get_db_path(project_dir)
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -37,6 +40,7 @@ class ConnectionManager:
         return conn
 
     def _release_connection(self, conn_id: str):
+        logger.debug(f"Release connection {conn_id}")
         with self._connection_dict_lock:
             conn = self._connection_dict.pop(conn_id)
         conn.close()
@@ -100,6 +104,13 @@ class ModelsContextBuilder:
         self._conn_ctx = ConnectionManager.get_instance().open_connection(project_dir)
         return self
 
+    @contextmanager
+    def _start_transaction(self):
+        logger.debug("Start transaction")
+        with self._conn:
+            yield self._conn
+        logger.debug("Finished transaction")
+
     def transaction(self) -> 'ModelsContextBuilder':
         self._transaction = True
         return self
@@ -107,7 +118,7 @@ class ModelsContextBuilder:
     def __enter__(self) -> Models:
         self._conn = self._exit_stack.enter_context(self._conn_ctx)
         if self._transaction:
-            self._exit_stack.enter_context(self._conn)
+            self._exit_stack.enter_context(self._start_transaction())
         return Models(self._conn)
 
     def __exit__(self, exc_type, exc_val, exc_tb):

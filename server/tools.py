@@ -1,9 +1,12 @@
+import dataclasses
 from datetime import datetime
 from typing import Dict, List, Optional, Union
-import dataclasses
+
+from loguru import logger
 
 from models import Models, model_manager
 from models.task import Task
+
 from .mcp import mcp
 
 TaskId = Union[str, int]
@@ -86,6 +89,7 @@ def _process_task_tree(models: Models, node: TaskNode, root_id: int, parent_id) 
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def add_task_tree(project_dir: str, root: TaskNode, parent_id: int = 0) -> Dict[str, any]:
     '''Add a task tree.
 
@@ -97,6 +101,7 @@ def add_task_tree(project_dir: str, root: TaskNode, parent_id: int = 0) -> Dict[
     Returns:
         Dict with 'tasks' as the newly created tasks.
     '''
+    logger.info(f"Adding task tree with project_dir: {project_dir}, parent_id: {parent_id}, root name: {root.name}")
     with model_manager.open_models(project_dir).transaction() as models:
         if parent_id != 0:
             parent_task = models.task.get_by_id(parent_id)
@@ -109,6 +114,7 @@ def add_task_tree(project_dir: str, root: TaskNode, parent_id: int = 0) -> Dict[
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def list_roots(project_dir: str) -> Dict[str, any]:
     '''List all root tasks.
     
@@ -118,13 +124,15 @@ def list_roots(project_dir: str) -> Dict[str, any]:
     Returns:
         Dict with 'tasks' as the root task list.
     '''
+    logger.info(f"Listing root tasks with project_dir: {project_dir}")
     with model_manager.open_models(project_dir) as models:
-        # 单条sql, 无需开启事务
+        # 单条查询sql, 无需开启事务
         tasks = models.task.list_by_parent_id(0)
         return {'tasks': tasks}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def list_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
     '''List all tasks of a task tree by root ID.
     
@@ -135,13 +143,15 @@ def list_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'tasks' as the task list.
     '''
+    logger.info(f"Listing tasks with project_dir: {project_dir}, root_id: {root_id}")
     with model_manager.open_models(project_dir) as models:
-        # 单条sql, 无需开启事务
+        # 单条查询sql, 无需开启事务
         tasks = models.task.list_by_root_id(root_id)
         return {'tasks': tasks}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def list_leaf_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
     '''List all leaf tasks of a task tree by root ID.
     A leaf task (or atomic task) is the smallest indivisible unit in project management, 
@@ -154,13 +164,15 @@ def list_leaf_tasks_by_root(project_dir: str, root_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'tasks' as the leaf task list.
     '''
+    logger.info(f"Listing leaf tasks with project_dir: {project_dir}, root_id: {root_id}")
     with model_manager.open_models(project_dir) as models:
-        # 单条sql, 无需开启事务
+        # 单条查询sql, 无需开启事务
         tasks = models.task.list_leaves(root_id)
         return {'tasks': tasks}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def start_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     '''Start a leaf task.
     A leaf task (or atomic task) is the smallest indivisible unit in project management, 
@@ -173,12 +185,14 @@ def start_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the started task.
     '''
+    logger.info(f"Starting leaf task with project_dir: {project_dir}, id: {task_id}")
     with model_manager.open_models(project_dir).transaction() as models:
         task = models.task.start_by_id(task_id)
         return {'task': task}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def finish_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     '''Finish a leaf task.
     A leaf task (or atomic task) is the smallest indivisible unit in project management, 
@@ -191,12 +205,14 @@ def finish_leaf_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the finished task.
     '''
+    logger.info(f"Finishing leaf task with project_dir: {project_dir}, id: {task_id}")
     with model_manager.open_models(project_dir).transaction() as models:
         task = models.task.finish_by_id(task_id)
         return {'task': task}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def delete_task(project_dir: str, task_id: int) -> Dict[str, any]:
     '''Delete a task.
     
@@ -207,12 +223,14 @@ def delete_task(project_dir: str, task_id: int) -> Dict[str, any]:
     Returns:
         Dict with 'task' as the deleted task.
     '''
+    logger.info(f"Deleting task with project_dir: {project_dir}, id: {task_id}")
     with model_manager.open_models(project_dir).transaction() as models:
         models.task.delete_by_id(task_id)
         return {'result': True}
 
 
 @mcp.tool()
+@logger.catch(reraise=True)
 def clear_all_tasks(project_dir: str) -> Dict[str, any]:
     '''Clear all the tasks. This will delete all the tasks in the project.
 
@@ -222,11 +240,14 @@ def clear_all_tasks(project_dir: str) -> Dict[str, any]:
     Returns:
         Dict with 'result' as True.
     '''
+    logger.warning(f"Clearing all tasks with project_dir: {project_dir}")
     with model_manager.open_models(project_dir).transaction() as models:
         models.task.clear()
         return {'result': True}
 
+
 @mcp.tool()
+@logger.catch(reraise=True)
 def update_leaf_task(project_dir: str, task_id: int, progress: float) -> Dict[str, any]:
     '''Update progress of a leaf task.
     A leaf task (or atomic task) is the smallest indivisible unit in project management,
@@ -243,16 +264,10 @@ def update_leaf_task(project_dir: str, task_id: int, progress: float) -> Dict[st
     Raises:
         ValueError: If progress is not between 0.0 and 1.0, or task is not a leaf task.
     '''
+    logger.info(f"Updating leaf task with project_dir: {project_dir}, id: {task_id}, progress: {progress}")
     if not 0.0 <= progress <= 1.0:
         raise ValueError("Progress must be between 0.0 and 1.0")
 
     with model_manager.open_models(project_dir).transaction() as models:
-        task = models.task.get_by_id(task_id)
-        if not task:
-            raise ValueError(f"Task with id {task_id} not found")
-        if not task.is_leaf:
-            raise ValueError(f"Task with id {task_id} is not a leaf task")
-
-        task.progress = progress
-        models.task.update_progress(task_id, progress)
+        task = models.task.update_progress(task_id, progress)
         return {'task': task}
