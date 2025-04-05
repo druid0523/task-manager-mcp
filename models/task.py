@@ -2,7 +2,7 @@ from contextlib import closing
 import dataclasses
 import sqlite3
 from sqlite3 import Row
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from models.utils import get_dict_cursor
