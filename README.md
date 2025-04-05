@@ -6,6 +6,8 @@ Task Manager MCP is a task management service based on the MCP (Model Context Pr
 
 Key Features:
 - Hierarchical task/subtask modeling
+- Task Gantt chart
+- Task dependency management (TODO)
 
 ## Documentation
 - en [English](README.md)

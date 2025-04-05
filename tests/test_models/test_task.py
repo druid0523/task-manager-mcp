@@ -1,3 +1,4 @@
+from contextlib import closing
 import pytest
 import sqlite3
 from models.task import TaskModel, Task
@@ -6,8 +7,8 @@ from models.task import TaskModel, Task
 def db_connection():
     # 创建内存数据库
     conn = sqlite3.connect(":memory:")
-    yield conn
-    conn.close()
+    with closing(conn):
+        yield conn
 
 @pytest.fixture
 def task_model(db_connection):
@@ -490,6 +491,76 @@ def test_finish_by_id_valid_transition(task_model):
     assert finished_task.status == "finished"
     assert finished_task.finished_time is not None
 
+def test_update_progress_leaf_task(task_model):
+    """测试更新叶子任务进度"""
+    # 创建叶子任务
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True)
+    task_model.insert(task)
+    
+    # 更新进度
+    updated = task_model.update_progress(task.id, 0.5)
+    assert updated.progress == 0.5
+    # 验证数据库中的值
+    db_task = task_model.get_by_id(task.id)
+    assert db_task.progress == 0.5
+
+def test_update_progress_recursive_parent(task_model):
+    """测试递归更新父任务进度"""
+    # 创建父任务
+    parent = Task(id=None, name="Parent", number="1", root_id=0, parent_id=0, is_leaf=False)
+    task_model.insert(parent)
+    
+    # 创建两个子任务
+    child1 = Task(id=None, name="Child1", number="1.1", root_id=parent.id, parent_id=parent.id, is_leaf=True)
+    child2 = Task(id=None, name="Child2", number="1.2", root_id=parent.id, parent_id=parent.id, is_leaf=True)
+    task_model.insert(child1)
+    task_model.insert(child2)
+    
+    # 更新第一个子任务进度
+    task_model.update_progress(child1.id, 0.3)
+    # 父任务进度应为0.15 (0.3 + 0.0) / 2
+    parent = task_model.get_by_id(parent.id)
+    assert parent.progress == pytest.approx(0.15)
+    
+    # 更新第二个子任务进度
+    task_model.update_progress(child2.id, 0.7)
+    # 父任务进度应为0.5 (0.3 + 0.7) / 2
+    parent = task_model.get_by_id(parent.id)
+    assert parent.progress == pytest.approx(0.5)
+
+def test_update_progress_boundary_values(task_model):
+    """测试边界值"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True)
+    task_model.insert(task)
+    
+    # 测试0.0
+    updated = task_model.update_progress(task.id, 0.0)
+    assert updated.progress == 0.0
+    
+    # 测试1.0
+    updated = task_model.update_progress(task.id, 1.0)
+    assert updated.progress == 1.0
+
+def test_update_progress_invalid_values(task_model):
+    """测试无效进度值"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True)
+    task_model.insert(task)
+    
+    with pytest.raises(ValueError, match="Progress must be between 0.0 and 1.0"):
+        task_model.update_progress(task.id, -0.1)
+    
+    with pytest.raises(ValueError, match="Progress must be between 0.0 and 1.0"):
+        task_model.update_progress(task.id, 1.1)
+
+def test_update_progress_non_leaf(task_model):
+    """测试更新非叶子任务进度"""
+    task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=False)
+    task_model.insert(task)
+    
+    # 非叶子任务应该可以更新进度，因为父任务需要计算子任务平均进度
+    updated = task_model.update_progress(task.id, 0.5)
+    assert updated.progress == 0.5
+
 def test_finish_by_id_invalid_transition(task_model):
     """测试从非started状态完成任务"""
     task = Task(id=None, name="Task", number="1", root_id=0, parent_id=0, is_leaf=True, status="created")
@@ -535,3 +606,27 @@ def test_clear(task_model):
     new_task = Task(id=None, name="New Task", number="1", root_id=0, parent_id=0)
     task_model.insert(new_task)
     assert new_task.id == 1
+
+def test_update_leaf_task_recursive_parent(task_model):
+    """测试更新叶子任务进度时递归更新父任务"""
+    # 创建父任务
+    parent = Task(id=None, name="Parent", number="1", root_id=0, parent_id=0, is_leaf=False)
+    task_model.insert(parent)
+    
+    # 创建两个子任务
+    child1 = Task(id=None, name="Child1", number="1.1", root_id=parent.id, parent_id=parent.id, is_leaf=True)
+    child2 = Task(id=None, name="Child2", number="1.2", root_id=parent.id, parent_id=parent.id, is_leaf=True)
+    task_model.insert(child1)
+    task_model.insert(child2)
+    
+    # 更新第一个子任务进度
+    task_model.update_progress(child1.id, 0.3)
+    # 父任务进度应为0.15 (0.3 + 0.0) / 2
+    parent = task_model.get_by_id(parent.id)
+    assert parent.progress == pytest.approx(0.15)
+    
+    # 更新第二个子任务进度
+    task_model.update_progress(child2.id, 0.7)
+    # 父任务进度应为0.5 (0.3 + 0.7) / 2
+    parent = task_model.get_by_id(parent.id)
+    assert parent.progress == pytest.approx(0.5)
