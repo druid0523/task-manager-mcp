@@ -8,7 +8,7 @@ from models.task import Task
 from server.tools import (TaskNode, add_task_tree, delete_task,
                           finish_leaf_task, list_leaf_tasks_by_root,
                           list_roots, list_tasks_by_root, clear_all_tasks,
-                          start_leaf_task)
+                          start_leaf_task, update_leaf_task)
 
 
 @pytest.fixture
@@ -115,3 +115,82 @@ def test_clear_all_tasks(project_dir):
     with model_manager.open_models(project_dir) as models:
         tasks = models.task.list_by_parent_id(0)
         assert len(tasks) == 0
+
+def test_update_leaf_task(project_dir):
+    root = TaskNode(name="Root")
+    add_task_tree(project_dir, root)
+    task_id = list_roots(project_dir)['tasks'][0].id
+    
+    result = update_leaf_task(project_dir, task_id, 0.5)
+    assert result['task'].progress == 0.5
+    assert result['task'].updated_time is not None
+
+def test_update_leaf_task_recursive_parent(project_dir):
+    """测试更新叶子任务进度时递归更新父任务"""
+    # 创建父任务和子任务
+    root = TaskNode(name="Root")
+    child1 = TaskNode(name="Child1")
+    child2 = TaskNode(name="Child2")
+    root.children = [child1, child2]
+    add_task_tree(project_dir, root)
+    
+    # 获取任务ID
+    root_id = list_roots(project_dir)['tasks'][0].id
+    leaves = list_leaf_tasks_by_root(project_dir, root_id)['tasks']
+    child1_id = leaves[0].id
+    child2_id = leaves[1].id
+    
+    # 更新第一个子任务进度
+    update_leaf_task(project_dir, child1_id, 0.3)
+    
+    # 验证父任务进度
+    with model_manager.open_models(project_dir) as models:
+        parent = models.task.get_by_id(root_id)
+        assert parent.progress == pytest.approx(0.15)  # (0.3 + 0.0) / 2
+    
+    # 更新第二个子任务进度
+    update_leaf_task(project_dir, child2_id, 0.7)
+    
+    # 验证父任务进度
+    with model_manager.open_models(project_dir) as models:
+        parent = models.task.get_by_id(root_id)
+        assert parent.progress == pytest.approx(0.5)  # (0.3 + 0.7) / 2
+
+def test_update_leaf_task_boundary_values(project_dir):
+    root = TaskNode(name="Root")
+    add_task_tree(project_dir, root)
+    task_id = list_roots(project_dir)['tasks'][0].id
+    
+    # Test 0.0
+    result = update_leaf_task(project_dir, task_id, 0.0)
+    assert result['task'].progress == 0.0
+    
+    # Test 1.0
+    result = update_leaf_task(project_dir, task_id, 1.0)
+    assert result['task'].progress == 1.0
+
+def test_update_leaf_task_invalid_progress(project_dir):
+    root = TaskNode(name="Root")
+    add_task_tree(project_dir, root)
+    task_id = list_roots(project_dir)['tasks'][0].id
+    
+    with pytest.raises(ValueError, match="Progress must be between 0.0 and 1.0"):
+        update_leaf_task(project_dir, task_id, -0.1)
+    
+    with pytest.raises(ValueError, match="Progress must be between 0.0 and 1.0"):
+        update_leaf_task(project_dir, task_id, 1.1)
+
+def test_update_non_leaf_task(project_dir):
+    root = TaskNode(name="Root")
+    child = TaskNode(name="Child")
+    root.children = [child]
+    add_task_tree(project_dir, root)
+    root_id = list_roots(project_dir)['tasks'][0].id
+    
+    with pytest.raises(ValueError, match="is not a leaf task"):
+        update_leaf_task(project_dir, root_id, 0.5)
+
+def test_update_nonexistent_task(project_dir):
+    with pytest.raises(ValueError, match="not found"):
+        update_leaf_task(project_dir, 999, 0.5)
+

@@ -18,12 +18,16 @@ class TaskNode:
         name: The name of the task.
         description: The description of the task.
         number: The number of the task. e.g. "1.2.3"
+        planned_start_time: The planned start time of the task.
+        planned_finish_time: The planned finished time of the task.
         children: The children of the task.
 
     '''
     name: str
     description: str = ""
     number: str = ""
+    planned_start_time: Optional[datetime] = None
+    planned_finish_time: Optional[datetime] = None
     children: List['TaskNode'] = dataclasses.field(default_factory=list)
 
 
@@ -48,8 +52,12 @@ def _create_task_from_node(models: Models, node: TaskNode, root_id: int, parent_
         root_id=root_id,
         parent_id=parent_id,
         created_time=datetime.now(),
+        updated_time=datetime.now(),
         started_time=None,
         finished_time=None,
+        planned_start_time=node.planned_start_time,
+        planned_finish_time=node.planned_finish_time,
+        progress=0.0,
         deleted=False
     )
     models.task.insert(task)
@@ -97,7 +105,7 @@ def add_task_tree(project_dir: str, root: TaskNode, parent_id: int = 0) -> Dict[
             root_id = 0
 
         tasks = _process_task_tree(models, root, root_id, parent_id)
-        return {'tasks': [task for task in tasks]}
+        return {'tasks': tasks}
 
 
 @mcp.tool()
@@ -217,3 +225,34 @@ def clear_all_tasks(project_dir: str) -> Dict[str, any]:
     with model_manager.open_models(project_dir).transaction() as models:
         models.task.clear()
         return {'result': True}
+
+@mcp.tool()
+def update_leaf_task(project_dir: str, task_id: int, progress: float) -> Dict[str, any]:
+    '''Update progress of a leaf task.
+    A leaf task (or atomic task) is the smallest indivisible unit in project management,
+    equivalent to a Work Package in a Work Breakdown Structure (WBS) and an Activity in a project schedule.
+
+    Args:
+        project_dir: The project directory absolute path.
+        task_id: The ID of the task.
+        progress: The progress value between 0.0 and 1.0.
+    
+    Returns:
+        Dict with 'task' as the updated task.
+    
+    Raises:
+        ValueError: If progress is not between 0.0 and 1.0, or task is not a leaf task.
+    '''
+    if not 0.0 <= progress <= 1.0:
+        raise ValueError("Progress must be between 0.0 and 1.0")
+
+    with model_manager.open_models(project_dir).transaction() as models:
+        task = models.task.get_by_id(task_id)
+        if not task:
+            raise ValueError(f"Task with id {task_id} not found")
+        if not task.is_leaf:
+            raise ValueError(f"Task with id {task_id} is not a leaf task")
+
+        task.progress = progress
+        models.task.update_progress(task_id, progress)
+        return {'task': task}

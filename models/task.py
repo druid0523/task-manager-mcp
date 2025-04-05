@@ -24,9 +24,26 @@ class Task:
     parent_id: int = 0
 
     created_time: datetime = dataclasses.field(default_factory=datetime.now)
+    updated_time: datetime = dataclasses.field(default_factory=datetime.now)
     started_time: Optional[datetime] = None
     finished_time: Optional[datetime] = None
+    planned_start_time: Optional[datetime] = None
+    planned_finish_time: Optional[datetime] = None
+    progress: float = 0.0
     deleted: bool = False
+
+    @property
+    def planned_duration(self) -> Optional[float]:
+        """计算计划持续时间（单位：秒）"""
+        if self.planned_start_time and self.planned_finish_time:
+            return (self.planned_finish_time - self.planned_start_time).total_seconds()
+        return None
+
+    @planned_duration.setter
+    def planned_duration(self, duration: float):
+        """设置计划持续时间（单位：秒），自动更新planned_finish_time"""
+        if self.planned_start_time and duration:
+            self.planned_finish_time = self.planned_start_time + timedelta(seconds=duration)
 
 
 class TaskModel:
@@ -37,8 +54,9 @@ class TaskModel:
         other_model.update(data)
     '''
 
-    # 预定义可更新字段映射（字段名: 属性名）
+    # 预定义可更新字段映射, 字段名(field_name): 属性名(attribute_name)
     field_map = {
+        'id': 'id',
         'name': 'name',
         'description': 'description',
         'status': 'status',
@@ -47,8 +65,13 @@ class TaskModel:
         'is_leaf': 'is_leaf',
         'root_id': 'root_id',
         'parent_id': 'parent_id',
+        'created_time': 'created_time',
+        'updated_time': 'updated_time',
         'started_time': 'started_time',
         'finished_time': 'finished_time',
+        'planned_start_time': 'planned_start_time',
+        'planned_finish_time': 'planned_finish_time',
+        'progress': 'progress',
         'deleted': 'deleted'
     }
 
@@ -77,9 +100,13 @@ class TaskModel:
                 parent_id INTEGER NOT NULL DEFAULT 0,
                 root_id INTEGER NOT NULL DEFAULT 0,
                 created_time DATETIME NOT NULL,
+                updated_time DATETIME,
                 started_time DATETIME,
                 finished_time DATETIME,
-                deleted BOOLEAN DEFAULT FALSE
+                planned_start_time DATETIME,
+                planned_finish_time DATETIME,
+                progress REAL NOT NULL DEFAULT 0.0,
+                deleted BOOLEAN NOT NULL DEFAULT FALSE
             )
         """)
         self._conn.execute("""
@@ -91,31 +118,44 @@ class TaskModel:
         self._conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)
         """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_updated_time ON tasks(updated_time)
+        """)
 
-    @staticmethod
-    def _from_row(row) -> Task:
+    @classmethod
+    def _get_datetime_column_value(cls, row, field_name, optional=False):
+        if optional:
+            return datetime.fromisoformat(row[field_name]) if row[field_name] else None
+        return datetime.fromisoformat(row[field_name])
+
+    @classmethod
+    def _get_normal_column_value(cls, row, field_name, optional=False):
+        if optional:
+            return row[field_name] if row[field_name] else None
+        return row[field_name]
+
+    @classmethod
+    def _get_row_column_value(cls, row, field_name):
+        optional = field_name in ('updated_time', 'started_time', 'finished_time', 'planned_start_time', 'planned_finish_time')
+        is_datetime = field_name in ('created_time', 'updated_time', 'started_time', 'finished_time', 'planned_start_time', 'planned_finish_time')
+        if is_datetime:
+            return cls._get_datetime_column_value(row, field_name, optional)
+        return cls._get_normal_column_value(row, field_name, optional)
+
+    @classmethod
+    def _from_row(cls, row) -> Task:
         """将数据库行转换为Task对象"""
-        return Task(
-            id=row['id'],
-            name=row['name'],
-            description=row['description'],
-            status=row['status'],
-            version=row['version'],
-            number=row['number'],
-            is_leaf=row['is_leaf'],
-            root_id=row['root_id'],
-            parent_id=row['parent_id'],
-            created_time=datetime.fromisoformat(row['created_time']),
-            started_time=datetime.fromisoformat(row['started_time']) if row['started_time'] else None,
-            finished_time=datetime.fromisoformat(row['finished_time']) if row['finished_time'] else None
-        )
+        kw = {
+            field_name: cls._get_row_column_value(row, field_name)
+            for field_name in cls.field_map.keys()
+        }
+
+        return Task(**kw)
 
     def get_by_id(self, task_id: int) -> Optional[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                       number, is_leaf, root_id, parent_id,
-                       created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE id = ? AND deleted = FALSE
             """, (task_id,))
@@ -126,10 +166,8 @@ class TaskModel:
 
     def get_by_root_id_and_number(self, root_id: int, number: str) -> Optional[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                       number, is_leaf, root_id, parent_id,
-                       created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE root_id = ? AND number = ? AND deleted = FALSE
             """, (root_id, number))
@@ -140,10 +178,8 @@ class TaskModel:
 
     def list_by_parent_id(self, parent_id: int) -> List[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                       number, is_leaf, root_id, parent_id,
-                       created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE parent_id = ? AND deleted = FALSE
                 ORDER BY number
@@ -155,10 +191,8 @@ class TaskModel:
 
     def list_by_root_id(self, root_id: int) -> List[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                       number, is_leaf, root_id, parent_id,
-                       created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE root_id = ? AND deleted = FALSE
                 ORDER by number
@@ -170,10 +204,8 @@ class TaskModel:
 
     def list_leaves(self, root_id: int) -> List[Task]:
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                       number, is_leaf, root_id, parent_id,
-                       created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE root_id = ? AND is_leaf = 1 AND deleted = FALSE
                 ORDER BY number
@@ -186,17 +218,15 @@ class TaskModel:
     def insert(self, task: Task):
         is_root = task.parent_id == 0
         # Insert new task
-        sql = """
+        insert_fields = [field_name for field_name in self.field_map.keys() if field_name != 'id']
+        sql = f"""
             INSERT INTO tasks (
-                name, description, status, version,
-                number, is_leaf, root_id, parent_id,
-                created_time, started_time, finished_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                {', '.join(insert_fields)}
+            ) VALUES ({', '.join('?' * len(insert_fields))})
         """
-        sql_params = (
-            task.name, task.description, task.status, task.version,
-            task.number, task.is_leaf, task.root_id, task.parent_id,
-            task.created_time, task.started_time, task.finished_time
+        sql_params = tuple(
+            getattr(task, self.field_map[field_name])
+            for field_name in insert_fields
         )
         with closing(self._conn.execute(sql, sql_params)) as cursor:
             task.id = cursor.lastrowid
@@ -216,9 +246,16 @@ class TaskModel:
     def update(self, task: Task, fields: List[str] = None, use_version: bool = False):
         last_total_changes = self._conn.total_changes
         current_version = task.version if use_version else None
-        update_fields = fields or self.field_map.keys()
+
+        update_fields = fields or list(self.field_map.keys())
+
         set_clause = []
         params = []
+
+        # 在更新前自动设置updated_time
+        if 'updated_time' not in update_fields:
+            update_fields.append('updated_time')
+        task.updated_time = datetime.now()
 
         # 动态构建更新字段（始终过滤version字段）
         for field in update_fields:
@@ -236,11 +273,13 @@ class TaskModel:
             params.append(task.id)
 
         query = f"""
-            UPDATE tasks 
+            UPDATE tasks
             SET {', '.join(set_clause)}
             WHERE {where_condition}
         """
 
+        print(query)
+        print(params)
         self._conn.execute(query, tuple(params))
 
         if self._conn.total_changes == last_total_changes:
@@ -322,10 +361,8 @@ class TaskModel:
             List of matching root tasks
         """
         with closing(get_dict_cursor(self._conn)) as cursor:
-            cursor.execute("""
-                SELECT id, name, description, status, version,
-                    number, is_leaf, root_id, parent_id,
-                    created_time, started_time, finished_time
+            cursor.execute(f"""
+                SELECT {', '.join(self.field_map.keys())}
                 FROM tasks
                 WHERE parent_id = 0 AND name LIKE ? AND deleted = FALSE
                 ORDER BY name
@@ -347,6 +384,39 @@ class TaskModel:
         self.update_status(task_id, 'started')
         return self.get_by_id(task_id)
     
+    def update_progress(self, task_id: int, progress: float) -> Task:
+        """Update task progress and recursively update parent tasks.
+        
+        Args:
+            task_id: The ID of the task to update
+            progress: The new progress value (0.0 to 1.0)
+            
+        Returns:
+            The updated task
+            
+        Raises:
+            ValueError: If progress is invalid or task not found
+        """
+        if not 0.0 <= progress <= 1.0:
+            raise ValueError("Progress must be between 0.0 and 1.0")
+            
+        task = self.get_by_id(task_id)
+        if not task:
+            raise ValueError(f"Task with id {task_id} not found")
+            
+        # Update current task progress
+        task.progress = progress
+        self.update(task, fields=['progress'])
+        
+        # Recursively update parent progress if not root
+        if task.parent_id != 0:
+            children = self.list_by_parent_id(task.parent_id)
+            if children:
+                # Calculate average progress of children
+                avg_progress = sum(child.progress for child in children) / len(children)
+                self.update_progress(task.parent_id, avg_progress)
+        return task
+
     def finish_by_id(self, task_id: int):
         """Finish a task by its ID."""
         task = self.get_by_id(task_id)
